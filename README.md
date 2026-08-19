@@ -5,7 +5,7 @@ metals to vanilla recipes — and to no modded ones. This adds them to everythin
 
 **221 buildings across 43 content mods**, plus any mod released in future, because the
 rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 495 material requirements added, and **no vanilla def
+replaying RimWorld's patch pipeline: 653 material requirements added, and **no vanilla def
 touched**.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
@@ -30,8 +30,16 @@ Materials was following and applies it categorically. For copper that rule is si
 
 > anything with `CompProperties_Power` needs copper, scaled to how much steel it uses
 
-which matches the author's own choices on 41 of his 48 copper recipes. Eight such rules, 24
-`PatchOperation`s, one file. A mod published next year is covered without anyone touching this.
+which matches the author's own choices on 41 of his 48 copper recipes. Eight such rules,
+31 `PatchOperation`s, one file. A mod published next year is covered without anyone
+touching this.
+
+Rules alone are not quite enough, though. They cannot express a material the author gave to
+one def and withheld from a near-identical one: the vanilla cooler got copper and lithium and
+no cast iron, while the rules by themselves handed its wall-mounted twin copper and cast iron
+and no lithium. So **seven defs that are exact functional twins of something he patched copy
+his actual material set instead**, scaled by `(target steel / anchor steel) ^ 0.5`. Those run
+first and are excluded from the rules, so the two never overlap.
 
 Amounts come in size bands — `≤5 steel → 2 copper`, `5–30 → 5`, `30–100 → 10`, `100+ → 15` —
 fitted from the author's own numbers, which recovers his menu of round values exactly.
@@ -77,11 +85,12 @@ It also skips any def already carrying electrum, lithium or white gold — the t
 he used that this patch never emits, and therefore proof he handled that def himself. That is
 how the ship parts keep their electrum instead of gaining copper.
 
-**Known limitation.** Categorical rules do not always agree with a def's own vanilla twin. The
-wall-mounted cooler gets copper and cast iron; the vanilla cooler it mirrors got copper and
-lithium. Both end up correctly gated into the materials economy, which is the point, but the
-specific metals differ. Closing that gap means analogue transfer rather than rules — see
-[docs/derivation.md](docs/derivation.md).
+**Known limitation.** One of the seven analogue transfers, `VTE_WallHeater`, matches the
+*cooler* rather than the heater — the vanilla heater carries a `Mass` stat the wall heater
+does not, so their functional key sets differ and the heater is never a candidate. It ends up
+with the cooler's profile. Both are temperature buildings and both get correctly gated, but
+the metals are the wrong sibling's. Fixing it needs a name or label tie-break, which is
+deliberately not used for selection — see [docs/derivation.md](docs/derivation.md).
 
 ## Why only More Materials?
 

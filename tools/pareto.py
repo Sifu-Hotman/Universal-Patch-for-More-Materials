@@ -35,6 +35,72 @@ from who_patched import (  # noqa: E402
 
 BANDS = [(0, 5), (5, 30), (30, 100), (100, 10_000)]
 
+# statBases entries that are levers, not function. Never part of a fingerprint.
+LEVER_STATS = {"WorkToBuild", "WorkToMake", "MarketValue", "SellPriceFactor",
+               "RoyalFavorValue"}
+SIZE_EXPONENT = 0.5   # measured: added amount tracks ~Steel^0.5, not Steel
+
+
+def fingerprint(node):
+    """Functional identity: stats minus levers, comp classes, category."""
+    stats = {}
+    sb = node.find("statBases")
+    if sb is not None:
+        for c in sb:
+            if c.tag in LEVER_STATS:
+                continue
+            try:
+                stats[c.tag] = float((c.text or "").strip())
+            except ValueError:
+                pass
+    comps = frozenset(
+        li.get("Class").split(".")[-1]
+        for li in (node.find("comps") or [])
+        if li.get("Class")
+    )
+    return stats, comps, (node.findtext("designationCategory") or "").strip()
+
+
+def analogue_ops(nodes, before, added, core, modded):
+    """Per-def operations copying a confident vanilla twin's exact signature.
+
+    Categorical rules cannot express a material the author gave to one def and
+    withheld from a near-identical one -- the vanilla Cooler got lithium and no
+    cast iron, while the rules give its modded twin cast iron and no lithium.
+    Where a modded def matches an anchor exactly on function, copy the anchor's
+    actual materials instead of guessing.
+    """
+    fps = {d: fingerprint(n) for d, n in nodes.items()}
+    anchors = [d for d in added if d in core]
+    out, covered = [], {}
+    for m in modded:
+        ms, mc, mcat = fps[m]
+        if not ms or not mcat:
+            continue
+        hits = [
+            a for a in anchors
+            if fps[a][0] == ms and fps[a][1] <= mc and fps[a][2] == mcat
+        ]
+        if len(hits) != 1:
+            continue
+        a = hits[0]
+        a_steel, m_steel = before[a].get("Steel"), before[m].get("Steel")
+        if not a_steel or not m_steel:
+            continue
+        factor = (m_steel / a_steel) ** SIZE_EXPONENT
+        vals = {k: max(1, round(v * factor)) for k, v in added[a].items()}
+        body = "".join(f"<{k}>{v}</{k}>" for k, v in sorted(vals.items()))
+        guard = " and ".join(f"not(costList/{k})" for k in sorted(vals))
+        out.append(
+            f"  <!-- {m}: exact functional twin of {a} -->\n"
+            '  <li Class="PatchOperationAdd">\n'
+            f'    <xpath>/Defs/ThingDef[defName="{m}" and {guard}]/costList</xpath>\n'
+            f"    <value>{body}</value>\n"
+            "  </li>"
+        )
+        covered[m] = (a, vals)
+    return out, covered
+
 
 def xpath_term(term: str) -> str:
     kind, _, val = term.partition("=")
@@ -210,6 +276,10 @@ def main() -> None:
     print(f"vanilla false positives, guarded:  {sum(len(r['fp_guarded']) for r in rules)}")
 
     top = [r for r in rules if r["mod"]][: args.emit]
+    ana_ops, ana_covered = analogue_ops(nodes, before, added, core, modded)
+    print(f"\nanalogue transfers (exact functional twin): {len(ana_covered)}")
+    for m, (a, v) in sorted(ana_covered.items()):
+        print(f"   {m:<32} <- {a:<22} {v}")
     # Materials the author used but this patch does not emit: unambiguous
     # evidence he handled the def, and unaffected by our own additions.
     exclusive = set(mats) - {r["mat"] for r in top}
@@ -238,9 +308,10 @@ def main() -> None:
             vals = [added[dn][r["mat"]] for dn in pos
                     if lo < before[dn].get("Steel", 0) <= hi]
             band_amounts.append(round(statistics.median(vals)) if vals else None)
-        core_hits = {d for d in core if set(r["combo"]) <= feats[d]}
+        # Analogue-covered defs are handled exactly; keep the rules off them.
+        core_hits = {d for d in core if set(r["combo"]) <= feats[d]} | set(ana_covered)
         bodies.append(emit_xml(r["mat"], r["combo"], band_amounts, exclusive, core_hits))
-    print(wrap_findmod(args.parent_name, "\n".join(bodies)))
+    print(wrap_findmod(args.parent_name, "\n".join(ana_ops + bodies)))
     print("</Patch>")
 
 
