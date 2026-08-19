@@ -5,7 +5,7 @@ metals to vanilla recipes — and to no modded ones. This adds them to everythin
 
 **221 buildings across 43 content mods**, plus any mod released in future, because the
 rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 653 material requirements added, and **no vanilla def
+replaying RimWorld's patch pipeline: 654 material requirements added, and **no vanilla def
 touched**.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
@@ -39,7 +39,8 @@ one def and withheld from a near-identical one: the vanilla cooler got copper an
 no cast iron, while the rules by themselves handed its wall-mounted twin copper and cast iron
 and no lithium. So **seven defs that are exact functional twins of something he patched copy
 his actual material set instead**, scaled by `(target steel / anchor steel) ^ 0.5`. Those run
-first and are excluded from the rules, so the two never overlap.
+first and are excluded from the rules, so the two never overlap. One of the seven has a
+hand-assigned anchor; see below.
 
 Amounts come in size bands — `≤5 steel → 2 copper`, `5–30 → 5`, `30–100 → 10`, `100+ → 15` —
 fitted from the author's own numbers, which recovers his menu of round values exactly.
@@ -85,12 +86,19 @@ It also skips any def already carrying electrum, lithium or white gold — the t
 he used that this patch never emits, and therefore proof he handled that def himself. That is
 how the ship parts keep their electrum instead of gaining copper.
 
-**Known limitation.** One of the seven analogue transfers, `VTE_WallHeater`, matches the
-*cooler* rather than the heater — the vanilla heater carries a `Mass` stat the wall heater
-does not, so their functional key sets differ and the heater is never a candidate. It ends up
-with the cooler's profile. Both are temperature buildings and both get correctly gated, but
-the metals are the wrong sibling's. Fixing it needs a name or label tie-break, which is
-deliberately not used for selection — see [docs/derivation.md](docs/derivation.md).
+**One hand-assigned anchor.** `VTE_WallHeater` is pinned to the vanilla `Heater`. The matcher
+picks `Cooler`, and on the available evidence it is right to: that def has `Flammability 0.7`
+and no `Mass`, exactly like the vanilla cooler, where the vanilla heater has `0.5` and
+`Mass 6`.
+
+This is not a VTE defect — 15 of their 18 temperature items omit `Mass`, and `Mass` is inert
+on a non-minifiable building, which this is. The vanilla heater carries it only because it
+*is* minifiable and therefore haulable. The one structural signal that says "heater" is the
+`thingClass`, `Building_HeaterWithOffset`.
+
+The override lives in `tools/pareto.py` under `OVERRIDES`, with the condition for deleting it:
+teach the matcher a `thingClass`-family tie-break. The hand list is the authority; automation
+fills the gaps.
 
 ## Why only More Materials?
 

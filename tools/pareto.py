@@ -61,6 +61,21 @@ def fingerprint(node):
     return stats, comps, (node.findtext("designationCategory") or "").strip()
 
 
+# Hand-curated anchors that override the automatic matcher. The hand list is
+# the authority; automation fills gaps. Each entry needs a reason and a
+# condition under which it can be deleted.
+#
+# VTE_WallHeater -> Heater
+#   The matcher picks Cooler, and on the available evidence it is right to:
+#   VTE_WallHeater has Flammability 0.7 and no Mass, exactly like the vanilla
+#   Cooler, while the vanilla Heater has 0.5 and Mass 6. This is not a VTE
+#   defect -- 15 of their 18 temperature items omit Mass, and Mass is inert on
+#   a non-minifiable building, which this is. The only structural signal that
+#   says "heater" is the thingClass, Building_HeaterWithOffset.
+#   Remove when the matcher gains a thingClass-family tie-break.
+OVERRIDES = {"VTE_WallHeater": "Heater"}
+
+
 def analogue_ops(nodes, before, added, core, modded):
     """Per-def operations copying a confident vanilla twin's exact signature.
 
@@ -77,10 +92,16 @@ def analogue_ops(nodes, before, added, core, modded):
         ms, mc, mcat = fps[m]
         if not ms or not mcat:
             continue
-        hits = [
-            a for a in anchors
-            if fps[a][0] == ms and fps[a][1] <= mc and fps[a][2] == mcat
-        ]
+        forced = OVERRIDES.get(m)
+        if forced is not None:
+            if forced not in added:
+                continue          # anchor gained nothing; nothing to transfer
+            hits = [forced]
+        else:
+            hits = [
+                a for a in anchors
+                if fps[a][0] == ms and fps[a][1] <= mc and fps[a][2] == mcat
+            ]
         if len(hits) != 1:
             continue
         a = hits[0]
@@ -92,7 +113,7 @@ def analogue_ops(nodes, before, added, core, modded):
         body = "".join(f"<{k}>{v}</{k}>" for k, v in sorted(vals.items()))
         guard = " and ".join(f"not(costList/{k})" for k in sorted(vals))
         out.append(
-            f"  <!-- {m}: exact functional twin of {a} -->\n"
+            f"  <!-- {m}: {'hand-assigned anchor' if m in OVERRIDES else 'exact functional twin'} {a} -->\n"
             '  <li Class="PatchOperationAdd">\n'
             f'    <xpath>/Defs/ThingDef[defName="{m}" and {guard}]/costList</xpath>\n'
             f"    <value>{body}</value>\n"
