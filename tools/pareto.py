@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import statistics
 import sys
+import math
 from collections import Counter
 from pathlib import Path
 
@@ -197,7 +198,6 @@ def analogue_ops(nodes, before, added, core, modded):
 
 def fit_power(pairs):
     """Least-squares fit of amount = k * Steel^p in log space."""
-    import math
     pts = [(s, a) for s, a in pairs if s > 0 and a > 0]
     if len(pts) < 3:
         return None
@@ -211,7 +211,10 @@ def fit_power(pairs):
     return math.exp(my - pw * mx), pw
 
 
-def band_amounts_from_curve(pairs):
+SHRINK_N0 = 15   # prior strength: a material needs ~15 examples to outweigh the pool
+
+
+def band_amounts_from_curve(pairs, pooled_exponent=None):
     """Amount per band from the fitted curve, not per-band medians.
 
     Per-band medians break down once the bands are fine: each holds few
@@ -221,11 +224,25 @@ def band_amounts_from_curve(pairs):
     the data at each band's geometric midpoint uses every observation and
     cannot invert.
     """
-    import math
     fit = fit_power(pairs)
     if fit is None:
         return None
     k, pw = fit
+    # Shrink the exponent toward the pooled value, weighted by sample size.
+    # Per-material exponents range 0.37 to 0.77, and the spread tracks n
+    # rather than anything physical: the three best-sampled materials sit near
+    # 0.5 while every material with n <= 14 drifts high. Bronze fits 0.77 from
+    # six points and scores a suspicious 100% in sample, which is two
+    # parameters memorising six observations. Left alone that exponent drives
+    # the top band's extrapolation.
+    if pooled_exponent is not None:
+        n = len([1 for st, a in pairs if st > 0 and a > 0])
+        pw = (n * pw + SHRINK_N0 * pooled_exponent) / (n + SHRINK_N0)
+        # refit k for the new exponent so the curve keeps the data's centroid
+        pts = [(st, a) for st, a in pairs if st > 0 and a > 0]
+        mx = sum(math.log(st) for st, _ in pts) / len(pts)
+        my = sum(math.log(a) for _, a in pts) / len(pts)
+        k = math.exp(my - pw * mx)
     out = []
     for lo, hi in BANDS:
         top = min(hi, lo * 4 if lo else 3)      # keep the open band honest
@@ -408,6 +425,17 @@ def main() -> None:
     print(f"vanilla false positives, guarded:  {sum(len(r['fp_guarded']) for r in rules)}")
 
     top = [r for r in rules if r["mod"]][: args.emit]
+    # Pooled exponent across every material, for the shrinkage above.
+    _fits = []
+    for _mat in mats:
+        _pairs = [(before[dn].get("Steel", 0), added[dn][_mat])
+                  for dn in added if _mat in added[dn] and dn in core]
+        _f = fit_power(_pairs)
+        if _f:
+            _fits.append((_f[1], len([1 for st, a in _pairs if st > 0 and a > 0])))
+    pooled_exp = (sum(pw * n for pw, n in _fits) / sum(n for _, n in _fits)) if _fits else None
+    print(f"\npooled exponent across all materials: {pooled_exp:.3f}")
+
     ana_ops, ana_covered = analogue_ops(nodes, before, added, core, modded)
     print(f"\nanalogue transfers (exact functional twin): {len(ana_covered)}")
     for m, (a, v) in sorted(ana_covered.items()):
@@ -423,7 +451,7 @@ def main() -> None:
     for r in top:
         pos = r["pos"]
         pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
-        band_amounts = band_amounts_from_curve(pairs)
+        band_amounts = band_amounts_from_curve(pairs, pooled_exp)
         if band_amounts is None:
             band_amounts = []
             for lo, hi in BANDS:
@@ -438,7 +466,7 @@ def main() -> None:
     for r in top:
         pos = r["pos"]
         pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
-        band_amounts = band_amounts_from_curve(pairs)
+        band_amounts = band_amounts_from_curve(pairs, pooled_exp)
         if band_amounts is None:
             band_amounts = []
             for lo, hi in BANDS:
