@@ -5,7 +5,7 @@ metals to vanilla recipes — and to no modded ones. This adds them to everythin
 
 **221 buildings across 43 content mods**, plus any mod released in future, because the
 rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 650 material requirements added, and **no vanilla def
+replaying RimWorld's patch pipeline: 651 material requirements added, and **no vanilla def
 touched**.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
@@ -41,8 +41,14 @@ and no lithium. So **nine defs that are exact functional twins of something he p
 his actual material set instead**, scaled by `(target steel / anchor steel) ^ 0.5`. Those run
 first and are excluded from the rules, so the two never overlap.
 
-Amounts come in size bands — `≤5 steel → 2 copper`, `5–30 → 5`, `30–100 → 10`, `100+ → 15` —
-fitted from the author's own numbers, which recovers his menu of round values exactly.
+Amounts come in eight size bands, each read off the curve `amount = k · Steel^p` fitted over
+all of the author's own numbers — `p` lands near 0.5 for every material. Bands are dense where
+recipes are cheap, because the relationship is sublinear and coarse bands hit small buildings
+hardest: an early version gave a 10-steel power shower the same 30 units of metal as a 30-steel
+item, +273% on its cost, while a 1500-steel Rimatomics turbine gained 6%.
+
+Measured across the whole modlist: **median cost increase 33%, 90th percentile 63%, worst case
+127%.**
 
 ## Is approximate good enough?
 
@@ -102,6 +108,23 @@ cannot place was tried and reverted: it recovers `VTE_ACUnit` but pairs `VTE_Sta
 with the *heater*, whose durability stats happen to match while its `energyPerSecond` is the
 opposite sign. Trading one wrong answer for another is not progress, and anything without an
 anchor is still covered by the categorical rules.
+
+## Exotic content mods
+
+The mods furthest from vanilla are handled by the same rules, and the sublinear amounts keep
+them sane:
+
+| def | original cost | added | increase |
+|---|---|---|---|
+| Zeus Turbine (Rimatomics) | 1522 units | 52 cast iron, 24 copper, 27 nickel | +7% |
+| sewage treatment (Dubs) | 408 | 52 cast iron, 24 copper, 27 nickel | +25% |
+| genomorpher (Genetics) | 206 | 30 cast iron, 15 copper, 14 nickel | +29% |
+| prosthetic workbench (EPOE) | 84 | 21 cast iron, 10 copper, 7 lead, 9 nickel | +56% |
+| power shower (Dubs) | 11 | 7 cast iron, 4 copper, 3 nickel | +127% |
+
+Rimatomics gets 26 defs, Dubs 16, Genetics 9, EPOE 3. **147 active mods are untouched
+entirely** — anything with no powered, steel-costed buildings simply never matches, which is
+the correct outcome rather than a gap.
 
 ## Why only More Materials?
 

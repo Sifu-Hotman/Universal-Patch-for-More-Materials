@@ -33,7 +33,13 @@ from who_patched import (  # noqa: E402
     xml_files,
 )
 
-BANDS = [(0, 5), (5, 30), (30, 100), (100, 10_000)]
+# Finer at the low end on purpose. Coarse bands invert the author's intent:
+# with a single 5-30 band, a 10-steel power shower received the same 30 units
+# of metal as a 30-steel item, a +273% cost increase, while a 1500-steel
+# Rimatomics turbine gained 6%. The measured relationship is sublinear
+# (~Steel^0.5), so the bands have to be dense where recipes are cheap.
+BANDS = [(0, 3), (3, 8), (8, 15), (15, 30), (30, 60), (60, 120),
+         (120, 250), (250, 10_000)]
 
 # statBases entries that are levers, not function. Never part of a fingerprint.
 LEVER_STATS = {"WorkToBuild", "WorkToMake", "MarketValue", "SellPriceFactor",
@@ -187,6 +193,45 @@ def analogue_ops(nodes, before, added, core, modded):
         )
         covered[m] = (a, vals)
     return out, covered
+
+
+def fit_power(pairs):
+    """Least-squares fit of amount = k * Steel^p in log space."""
+    import math
+    pts = [(s, a) for s, a in pairs if s > 0 and a > 0]
+    if len(pts) < 3:
+        return None
+    xs = [math.log(s) for s, _ in pts]
+    ys = [math.log(a) for _, a in pts]
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    den = sum((x - mx) ** 2 for x in xs)
+    if not den:
+        return None
+    pw = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
+    return math.exp(my - pw * mx), pw
+
+
+def band_amounts_from_curve(pairs):
+    """Amount per band from the fitted curve, not per-band medians.
+
+    Per-band medians break down once the bands are fine: each holds few
+    examples, so a single outlier drives the value and the result stops being
+    monotonic -- cast iron read 8, then 30, then 10 across consecutive bands
+    because one crematorium sat at r=1.5. Evaluating the curve fitted over ALL
+    the data at each band's geometric midpoint uses every observation and
+    cannot invert.
+    """
+    import math
+    fit = fit_power(pairs)
+    if fit is None:
+        return None
+    k, pw = fit
+    out = []
+    for lo, hi in BANDS:
+        top = min(hi, lo * 4 if lo else 3)      # keep the open band honest
+        mid = math.sqrt(max(lo, 0.5) * top)
+        out.append(max(1, round(k * mid ** pw)))
+    return out
 
 
 def xpath_term(term: str) -> str:
@@ -377,11 +422,13 @@ def main() -> None:
 
     for r in top:
         pos = r["pos"]
-        band_amounts = []
-        for lo, hi in BANDS:
-            vals = [added[dn][r["mat"]] for dn in pos
-                    if lo < before[dn].get("Steel", 0) <= hi]
-            band_amounts.append(round(statistics.median(vals)) if vals else None)
+        pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
+        band_amounts = band_amounts_from_curve(pairs)
+        if band_amounts is None:
+            band_amounts = []
+            for lo, hi in BANDS:
+                vals = [a for st, a in pairs if lo < st <= hi]
+                band_amounts.append(round(statistics.median(vals)) if vals else None)
         print(f"\n  band medians for {r['mat']}: "
               + ", ".join(f"{lo}-{hi if hi<10000 else '+'}:{a}"
                           for (lo, hi), a in zip(BANDS, band_amounts)))
@@ -390,11 +437,13 @@ def main() -> None:
     bodies = []
     for r in top:
         pos = r["pos"]
-        band_amounts = []
-        for lo, hi in BANDS:
-            vals = [added[dn][r["mat"]] for dn in pos
-                    if lo < before[dn].get("Steel", 0) <= hi]
-            band_amounts.append(round(statistics.median(vals)) if vals else None)
+        pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
+        band_amounts = band_amounts_from_curve(pairs)
+        if band_amounts is None:
+            band_amounts = []
+            for lo, hi in BANDS:
+                vals = [a for st, a in pairs if lo < st <= hi]
+                band_amounts.append(round(statistics.median(vals)) if vals else None)
         # Analogue-covered defs are handled exactly; keep the rules off them.
         core_hits = {d for d in core if set(r["combo"]) <= feats[d]} | set(ana_covered)
         bodies.append(emit_xml(r["mat"], r["combo"], band_amounts, exclusive, core_hits))
