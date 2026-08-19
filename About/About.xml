@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+    <name>Universal Patch for More Materials</name>
+    <author>eebette</author>
+    <packageId>eebette.MoreMaterialsUniversalPatch</packageId>
+    <supportedVersions>
+        <li>1.6</li>
+    </supportedVersions>
+    <description>More Materials adds copper, tin, nickel and five other metals to vanilla recipes. It does not touch modded ones — 55 patched defs, all of them vanilla. So your Vanilla Temperature Expanded wall cooler, functionally identical to the vanilla cooler, still costs plain steel and sidesteps the copper economy entirely.
+
+This closes that gap for 221 buildings across 43 content mods, and for mods that do not exist yet.
+
+Rather than a compatibility list naming each mod, it derives the rule More Materials was following and applies it categorically. For copper that rule is simply: anything with a power comp needs copper, scaled to how much steel it uses — which matches Mopolita's own choices on 41 of his 48 copper recipes. Eight such rules, one file, no C#, no performance cost.
+
+Amounts are fitted from his own numbers and land within 2x of his choices 98% of the time. Being slightly off on quantity is a rounding difference; requiring none of a material at all is the actual bug.
+
+WHAT IT WILL NOT DO
+Never modifies a vanilla def. Mopolita made every Core decision deliberately, so every vanilla def the rules would otherwise select is explicitly excluded. Defs he already handled — the ship parts he gave electrum rather than copper — are skipped too.
+
+Does nothing at all if More Materials is absent.
+
+SAFETY
+Pure XML patch. Safe to add mid-save; costs only apply to new construction. Safe to remove, though anything already queued may want re-placing.
+
+Load after More Materials.
+
+All balance decisions here are Mopolita's, inferred from their patches and extended to content they could not have covered. Bugs in the extension are mine.
+
+Source and the generator that produced the patch: https://github.com/eebette/Universal-Patch-for-More-Materials</description>
+    <modDependencies>
+        <li>
+            <packageId>mopolita.bame.morematerials</packageId>
+            <displayName>More Materials</displayName>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/3055040889</steamWorkshopUrl>
+        </li>
+    </modDependencies>
+    <loadAfter>
+        <li>mopolita.bame.morematerials</li>
+    </loadAfter>
+</ModMetaData>

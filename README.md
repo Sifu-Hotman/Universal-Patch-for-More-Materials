@@ -1,176 +1,138 @@
-# Universal Rebalancer
+# Universal Patch for More Materials
 
-**Status: placeholder — design-doc stage, no code, no build commitment.** This README
-captures the full design as discussed 2026-08-17; an agent picking this up cold
-should read it as the spec-so-far plus open questions, not as a finished design.
+A RimWorld 1.6 patch mod. [More Materials][mm] adds copper, tin, nickel and five other
+metals to vanilla recipes — and to no modded ones. This adds them to everything else.
 
-## Objective — the patch-lattice problem
+**221 buildings across 43 content mods**, plus any mod released in future, because the
+rules are categorical rather than a per-def compatibility list. Verified end to end by
+replaying RimWorld's patch pipeline: 495 material requirements added, and **no vanilla def
+touched**.
 
-Rebalance mods patch vanilla defs; functionally-analogous modded items keep their
-vanilla-era stats. Example: a materials/rebalance mod tweaks the vanilla cooler's
-cost and numbers; the "over-wall cooler" from another mod still matches vanilla
-PRE-balance stats and is now silently mispriced. N rebalance mods × M content mods =
-a patch matrix nobody maintains.
+[mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
 
-**Universal Rebalancer**: an in-game mod that scans the *patched* def database,
-buckets items into emergent functional groups across the user's entire modlist,
-detects imbalance, and proposes concrete patches the user reviews, tweaks, and
-applies — per item, in an in-game UI, applied on restart.
+## The problem
 
-"Universal" = content-library agnostic. No hardcoded category tables. Expansion-scale
-content with zero vanilla analogue (Rimatomics, Dubs plumbing) must bucket among
-itself and still get sane treatment.
+More Materials patches 55 vanilla defs. All 55 are vanilla — it makes no attempt at mod
+compatibility, and there is nothing wrong with that; hand-patching every content mod is not
+reasonable work for one author.
 
-## Core principles (settled with the owner — binding)
+The result in play: your vanilla cooler needs 90 steel, 3 components, 5 copper and 2 lithium.
+Vanilla Temperature Expanded's wall-mounted cooler is identical in function and needs 70 steel
+and 3 components. No copper, no lithium. It sidesteps the copper economy entirely, which is the
+whole point of the mod you installed.
 
-1. **Re-price, never re-design.** Only price-side/gating-side levers: costList, work,
-   market value, research prerequisites. NEVER functional stats (fire rate, cooling
-   power, DPS, grow time…). Function is design intent; cost and gating are economy
-   positioning. (This is also what makes weapons/apparel safe to include alongside
-   Combat Extended — CE owns combat stats, we never touch them.)
-2. **Every finding prescribes a concrete, editable patch.** Not flag-only. Example
-   output: "100 steel + 100 wood → 150 steel + 100 wood + 50 copper + 20 zinc —
-   tweak and/or apply." The suggestion tier is a PROVENANCE LABEL on the numbers
-   (anchor-delta / bucket baseline / global economy prior), with confidence degrading
-   down that stack and the UI stating which tier produced each number.
-3. **Suggest, never impose.** User cherry-picks items per bucket, edits numbers,
-   applies. Restart applies the patch set.
-4. **Buckets form on FUNCTION, not theme.** "Elegant hot tub" and "steel pipe" are
-   both plumbing-themed and must NEVER share a bucket; they are "recreation device"
-   and "small infrastructure component". Function-shaped features dominate; label
-   tokens and mod-of-origin are tie-breakers only, never bridgers across
-   dissimilarity. Bucket names are emergent descriptions of clusters, not inputs.
-   EXCEPTION: the research engine (below) inverts this — gate placement is where
-   theme legitimately matters.
+Multiply by 221 buildings.
 
-## Architecture
+## How it works
 
-Pipeline: **scan → bucket → suggest → review → apply**, with pluggable per-domain
-"category engines" (feature extractors + suggestion models) over a shared core.
+Rather than a compatibility list naming each content mod, this derives the *rule* More
+Materials was following and applies it categorically. For copper that rule is simply:
 
-**Engine order matters:** the materials engine runs FIRST — materials are the leaf
-nodes the whole economy is denominated in; category engines then reprice against
-corrected material values.
+> anything with `CompProperties_Power` needs copper, scaled to how much steel it uses
 
-### Scan
-`DefDatabase` post-load = final patched truth. Key advantage of being in-game rather
-than a CLI: **StatWorker evaluation** (`GetStatValueAbstract`) captures C#/StatPart
-rebalances that raw-XML diffing can never see. Baseline for delta detection: re-read
-raw unpatched XML from mod folders on disk (readable at runtime; skip
-PatchOperations) and diff vs live defs → what each rebalance actually did, per stat,
-as ratios/transformations. Limitation to document: rebalances implemented purely as
-Harmony/StatPart code have no def-field footprint and evaporate from XML diffing;
-StatWorker evaluation partially recovers them at the value level.
+which matches the author's own choices on 41 of his 48 copper recipes. Eight such rules, 24
+`PatchOperation`s, one file. A mod published next year is covered without anyone touching this.
 
-### Bucketing (emergent, classical — no ML infrastructure)
-Feature space: thingClass, comp set, designationCategory, placeWorkers, statBases
-KEY-shape, size, power/joy/linkable roles, research-tree position; label tokens
-demoted per principle 4. Jaccard similarity + hierarchical agglomerative clustering;
-the linkage-distance cutoff IS the bucket-boundary knob (refrigerators split from
-coolers when the dendrogram says so). A few thousand defs on a 300-mod list =
-milliseconds, ~200 lines of C#. Known wrinkle: modded comps are mod-private types,
-so comp features fragment across mods (two fridge mods, two comp classes) — bounded
-bridging via structural/text similarity, carefully weighted.
+Amounts come in size bands — `≤5 steel → 2 copper`, `5–30 → 5`, `30–100 → 10`, `100+ → 15` —
+fitted from the author's own numbers, which recovers his menu of round values exactly.
 
-### Suggestion tiers (provenance labels)
-1. **Anchor-delta** (highest confidence — and the core product): a bucket member was
-   rebalanced (baseline diff shows it); propagate the SAME movement to unpatched
-   bucket-mates. Must handle recipe TRANSFORMATIONS, not scalar ratios —
-   materials-rebalance mods introduce ingredients vanilla never had (90 steel →
-   45 steel + 20 copper), so propagation maps the analogue's costList through the
-   transformation (new-material shares of total cost mass). This composition-transfer
-   math is the interesting core of the tool.
-2. **Bucket baseline**: no anchor; compare cost-per-effectiveness within the bucket
-   (honest framing at n=4: a ratio table, not "regression"); propose movement toward
-   bucket median.
-3. **Global economy priors** (lowest confidence): anchorless AND weird buckets still
-   sit inside economy-wide relationships — cost-vs-work, value-per-material,
-   power-draw-vs-output, research-depth-vs-price — fitted across the whole
-   population. Plus tech-tier normalization so Rimatomics-depth gear is judged
-   against its tier, not against a wind turbine.
+## Is approximate good enough?
 
-Dissonance detection is symmetric: "functionally near-identical but 3× apart in
-cost" AND "near-identical cost, wildly apart in capability" both surface.
-Confidence must be EXPLAINABLE prose ("grouped: shares CompTempControl + same
-category; suggested ×2 cost: RebalanceMod halved vanilla cooler"), and structurally
-self-flagging: a different placeWorker/size on an otherwise-twin item = qualitative
-advantage the algorithm cannot price → confidence down, human judgment requested.
+Yes, and by a wide margin. Scored against the author's own choices, where his amount is
+ground truth:
 
-### Category engines (v-scope: all five discussed)
-- **Materials** (runs first): balance relation is value-per-acquisition-effort —
-  growDays/yield/fertility for plants, mining time/yield/commonality for minables —
-  fitted against the vanilla material tier curve (wood → steel → plasteel →
-  uranium). Driving example: modded tree, vanilla-equal value, 40× grow time.
-  Lever: marketValue (price-side); growth stats are design-side and stay the
-  human's tweak. Cascade note: RimWorld derives crafted-item value from ingredients
-  via StatWorker where not explicit — material corrections auto-propagate; the
-  engine must NOT double-correct derived values.
-- **Buildables**: the original cooler case.
-- **Creatures/animals**: arguably the strongest case — `combatPower` vs actual
-  health × DPS × speed misalignment is detectable against a vanilla-fit curve, and
-  miscalibrated modded combatPower silently corrupts the raid-point economy (this is
-  CE autopatcher's raison d'être).
-- **Craftables** (weapons/apparel): price-side only; CE owns combat stats.
-- **Food/drugs/plants**: consumable economy.
+| | median relative error | within 2× |
+|---|---|---|
+| these rules | **0.25** | **98%** |
+| doing nothing | 1.00 | 0% |
 
-### Research engine (separate engine — theming INVERTS here)
-Anchor gated behind research, analogue ungated → propose gating (symmetric:
-over-gated modded items get flagged too). Gate PLACEMENT hierarchy:
-1. Source mod has its own research tree → place at the anchor-equivalent tier within
-   it (plumbing pipe goes behind plumbing research, NOT vanilla electricity).
-2. No native tree, anchor's project thematically compatible → reuse it (over-wall
-   cooler behind vanilla Air Conditioning is right).
-3. Neither → generate a NEW ResearchProjectDef at anchor-tier cost. Heaviest
-   ownership in the whole tool (def generation, tab placement, prerequisite wiring).
-Lever principle extension: re-price and RE-GATE, never re-design function.
+The material requirement itself is imposed correctly **48 times out of 48** for copper. Being
+somewhat off on quantity is a rounding difference. Requiring *none* of a material lets an item
+bypass that economy completely, which is the actual bug.
 
-### Review UI + apply
-In-game bucket browser: per-bucket item list, per-item proposal rendered as an
-editable before→after diff (recipe, work, value, research), cherry-pick, tweak
-numbers inline, apply-on-restart. Persistence: decisions keyed by defName + a
-per-def stat-hash — hash mismatch = upstream mod updated since the decision →
-re-review flag. Double-patch standdown: if the baseline diff shows an item WAS
-later patched natively (rebalance mod shipped its own compat), stand down and flag.
-Apply mechanism: runtime def mutation at load from persisted decisions before caches
-warm ("restart to apply" convention), NOT generated PatchOperation XML — but
-**exportable decision files** are a first-class feature, see below.
+Per material, ranked by how many modded assignments each rule reaches. The shipped patch
+applies 495 of these; the gap is defs whose recipes use no steel, which the size bands
+require.
 
-### The sleeper feature
-Exported decision files = community-curated analogue maps as a byproduct of normal
-use. Every user's confirmed buckets + numbers is exactly the curation data a pure
-algorithm fatally lacks. Shareable/importable decision sets could matter more than
-the algorithm.
+| material | assignments | cumulative | vanilla false positives |
+|---|---|---|---|
+| `ME_Copper` | 196 | 29% | 4 |
+| `ME_Nickel` | 190 | 57% | 3 |
+| `ME_CastIronIngot` | 154 | 80% | 1 |
+| `ME_Tin` | 47 | 87% | 2 |
+| `ME_Lead` | 32 | 92% | 0 |
+| `ME_Zinc` | 27 | 96% | 0 |
+| `ME_BrassIngot` | 24 | 99% | 0 |
+| `ME_BronzeIngot` | 4 | 100% | 0 |
+| **total** | **674 reachable** | | **0 applied to vanilla** |
 
-## Precedents (none do bucketing+suggestion; the composition is novel)
-- CE experimental autopatcher — algorithmic per-category stat generation for
-  unpatched weapons/animals; closest existing thing.
-- Mod Medicine Patch — dynamic detection+scaling of modded medicines (single
-  hardcoded bucket).
-- RIMMSqol — runtime def editing with persistence (the manual version of this idea);
-  proves runtime mutation + persist + restart-apply is viable.
-- Cherry Picker — runtime DefDatabase surgery at scale.
+## What it will not do
 
-## Technical notes
-- Plain RimWorld mod: Harmony + vanilla. CE NOT required. RimWorld 1.6.
-- No ML runtime: Jaccard + agglomerative clustering in C#.
-- Effort honesty: real project; the review UI is the single biggest chunk, larger
-  than entire small mods.
+**It never modifies a vanilla def.** Mopolita made every Core decision deliberately; this
+covers only the modded content he could not. Left to themselves the rules would hand the
+vanilla heater cast iron he chose to withhold, so every Core def a rule would select is named
+and excluded.
 
-## Open questions (unsettled — decide before building)
-1. **v1 subset.** Full five-engine scope is large. Candidate v1: buildables +
-   anchor-delta tier only (the original cooler story end-to-end: scan, bucket,
-   propagate, review, apply) — proves the pipeline before generalizing. Not yet
-   agreed with the owner.
-2. Clustering validation: how to tune feature weights / linkage cutoff, and how to
-   present bucket quality to the user (merge/split controls in UI?).
-3. Confidence formula: how the explainable-prose provenance maps to a
-   score/ordering, if at all.
-4. Save-compat of applied patches mid-colony (costList changes are refund-safe-ish;
-   research regating a built item's tech — what happens to existing built copies?).
-5. Performance envelope: full rescan cadence (every load? modlist-hash change only?).
-6. New-ResearchProjectDef generation details (tab, coordinates, icon).
-7. Materials-cascade double-correct guard: exact rule for "derived vs explicit"
-   market values.
-8. Distribution: Workshop mod vs GitHub-only during experimental phase.
-9. packageId `eebette.UniversalRebalancer`; display name settled as
-   "Universal Rebalancer".
+It also skips any def already carrying electrum, lithium or white gold — the three materials
+he used that this patch never emits, and therefore proof he handled that def himself. That is
+how the ship parts keep their electrum instead of gaining copper.
+
+**Known limitation.** Categorical rules do not always agree with a def's own vanilla twin. The
+wall-mounted cooler gets copper and cast iron; the vanilla cooler it mirrors got copper and
+lithium. Both end up correctly gated into the materials economy, which is the point, but the
+specific metals differ. Closing that gap means analogue transfer rather than rules — see
+[docs/derivation.md](docs/derivation.md).
+
+## Why only More Materials?
+
+Twenty active mods on the test list add new materials. Only **three** retrofit them into
+recipes that already existed, and only one does so at scale:
+
+| mod | materials added | retrofits existing recipes |
+|---|---|---|
+| More Materials | 13 | **55 defs — all vanilla, no mod coverage** |
+| Combat Extended | 2 | 109 defs, but ships its own compat patches |
+| VFE Insectoid 2 | 1 | 1 def |
+
+The other seventeen — including [More Useful Materials][mum], which adds fifteen — are
+self-consistent: their materials feed only their own content, so nothing diverged and there
+is nothing to propagate. **Adding materials does not create a gap. Redistributing them into
+existing recipes does.**
+
+That is why this patch targets one mod, and why the generator in `tools/` takes a packageId
+rather than hardcoding one.
+
+[mum]: https://steamcommunity.com/sharedfiles/filedetails/?id=3734307960
+
+## Requirements
+
+- RimWorld 1.6
+- [More Materials][mm] — required, and this must **load after** it
+
+## Repo layout
+
+```
+About/      mod metadata
+Patches/    the shipped patch
+tools/      the generator that produced it (Python, offline)
+docs/       derivation.md — full history, rejected designs, measurement bugs
+```
+
+## Regenerating
+
+The generator is not specific to More Materials; it takes any mod's packageId, replays that
+mod's `PatchOperation`s against your installed modlist, derives per-material rules from what it
+changed, and emits XML. The *output* is specific — every operation here hardcodes an `ME_`
+material name.
+
+```bash
+python3 tools/pareto.py mopolita.bame.morematerials --emit 99
+```
+
+Requires `lxml` and a local RimWorld install. It reads the game and Workshop folders directly;
+no game launch needed.
+
+## Credit
+
+All balance decisions here are [Mopolita's][mm], inferred from their own patches and extended
+to content they could not have covered. Bugs in the extension are mine.

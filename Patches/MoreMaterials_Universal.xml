@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Universal Patch for More Materials
+
+  Derived, not hand written. tools/pareto.py fits these rules from More
+  Materials' own 55 vanilla edits and emits this file:
+      python3 tools/pareto.py mopolita.bame.morematerials —emit 99
+
+  WHAT IT DOES
+    More Materials adds its metals to 55 vanilla defs and to no modded ones.
+    These rules apply the same intent categorically, so content from every mod
+    is covered, including mods released after this was written.
+
+  RULES, ranked by assignments contributed
+    material            F1   assigns   vanilla FP
+    ME_Copper          0.83      196       4
+    ME_Nickel          0.63      190       3
+    ME_CastIronIngot   0.61      154       1
+    ME_Tin             0.53       47       2
+    ME_Lead            0.50       32       0
+    ME_Zinc            0.58       27       0
+    ME_BrassIngot      0.53       24       0
+    ME_BronzeIngot     0.67        4       0
+
+    F1 is measured without the guards below and overstates the damage. Copper
+    alone would ship only 29% of the assignments, so the weaker rules earn
+    their place.
+
+  WHY APPROXIMATE IS FINE
+    Scored against the author's own choices, where his amount is ground truth:
+      these rules    median relative error 0.25   within 2x: 98%
+      doing nothing  median relative error 1.00   within 2x:  0%
+    The material requirement itself is imposed correctly 48 of 48 times for
+    copper. Being off on quantity is a rounding difference; requiring none of a
+    material lets an item bypass that economy, which is the real bug.
+
+  AMOUNTS
+    Size bands, medians of the author's own numbers, recovering his menu of
+    round values. The true relationship is about k * Steel^0.5, but xpath
+    cannot compute a square root. Bands also cap the output, so no pathological
+    recipe can produce a pathological amount.
+
+  GUARDS
+    PatchOperationFindMod
+      Does nothing at all unless More Materials is present; without it this
+      would inject ME_ defNames that do not exist. <mods> matches the parent's
+      About.xml <name>, not its packageId.
+
+    per-rule material guards
+      Each rule skips defs that already carry its own material, plus the three
+      the author used that this patch never emits (electrum, lithium, white
+      gold). Those three are unambiguous evidence he handled the def himself.
+
+      A single prefix guard, not(costList/*[starts-with(name(), "ME_")]),
+      looks equivalent and is self-defeating: the copper rule adds a prefixed
+      material, so every later rule sees one and skips, collapsing 529
+      assignments to 225. Guarding on materials this patch never adds stays
+      true no matter what it has already added.
+
+    explicit vanilla exclusions
+      Every Core def a rule would otherwise select is named and skipped. The
+      parent author made each vanilla decision deliberately; this patch covers
+      only the modded content he could not. Without these, the rules would give
+      the vanilla heater cast iron he chose to withhold and rewrite the
+      flatscreen television's cost outright.
+
+    Load AFTER More Materials. See About.xml.
+
+  LIMITATION
+    Categorical rules do not always agree with a def's own vanilla twin. The
+    wall-mounted cooler receives copper and cast iron; the vanilla cooler it
+    mirrors received copper and lithium. Both are correctly gated into the
+    materials economy, which is the point, but the specific metals differ.
+    Fixing that means analogue transfer rather than rules; see docs/.
+
+  Upper bounds are written not(Steel > n) because '<' is illegal in XML text.
+-->
+<Patch>
+  <Operation Class="PatchOperationFindMod">
+    <mods>
+      <li>More Materials</li>
+    </mods>
+    <match Class="PatchOperationSequence">
+      <success>Always</success>
+      <operations>
+      <!-- ME_Copper: comp=CompProperties_Power -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 0 and not(costList/Steel > 5) and not(costList/ME_Copper) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="FloodLight") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="InfiniteChemreactor") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerConduit") and not(defName="PowerSwitch") and not(defName="PsychicEmanator") and not(defName="Ship_Beam") and not(defName="Ship_ComputerCore") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_Engine") and not(defName="Ship_Reactor") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VanometricPowerCell") and not(defName="VitalsMonitor") and not(defName="WallLamp") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Copper>2</ME_Copper></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_Copper) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="FloodLight") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="InfiniteChemreactor") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerConduit") and not(defName="PowerSwitch") and not(defName="PsychicEmanator") and not(defName="Ship_Beam") and not(defName="Ship_ComputerCore") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_Engine") and not(defName="Ship_Reactor") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VanometricPowerCell") and not(defName="VitalsMonitor") and not(defName="WallLamp") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Copper>5</ME_Copper></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_Copper) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="FloodLight") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="InfiniteChemreactor") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerConduit") and not(defName="PowerSwitch") and not(defName="PsychicEmanator") and not(defName="Ship_Beam") and not(defName="Ship_ComputerCore") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_Engine") and not(defName="Ship_Reactor") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VanometricPowerCell") and not(defName="VitalsMonitor") and not(defName="WallLamp") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Copper>10</ME_Copper></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 100 and not(costList/ME_Copper) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="FloodLight") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="InfiniteChemreactor") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerConduit") and not(defName="PowerSwitch") and not(defName="PsychicEmanator") and not(defName="Ship_Beam") and not(defName="Ship_ComputerCore") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_Engine") and not(defName="Ship_Reactor") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VanometricPowerCell") and not(defName="VitalsMonitor") and not(defName="WallLamp") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Copper>15</ME_Copper></value>
+      </li>
+      <!-- ME_CastIronIngot: cost=ComponentIndustrial AND comp=CompProperties_Power -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[costList/ComponentIndustrial and comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_CastIronIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerSwitch") and not(defName="Ship_Beam") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VitalsMonitor") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_CastIronIngot>19</ME_CastIronIngot></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[costList/ComponentIndustrial and comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_CastIronIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerSwitch") and not(defName="Ship_Beam") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VitalsMonitor") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_CastIronIngot>20</ME_CastIronIngot></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[costList/ComponentIndustrial and comps/li[contains(@Class, "CompProperties_Power")] and costList/Steel > 100 and not(costList/ME_CastIronIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Autodoor") and not(defName="BiofuelRefinery") and not(defName="ChemfuelPoweredGenerator") and not(defName="CommsConsole") and not(defName="Cooler") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="FlatscreenTelevision") and not(defName="GeothermalGenerator") and not(defName="GroundPenetratingScanner") and not(defName="Heater") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="LongRangeMineralScanner") and not(defName="MegascreenTelevision") and not(defName="MoisturePump") and not(defName="MultiAnalyzer") and not(defName="NutrientPasteDispenser") and not(defName="OrbitalTradeBeacon") and not(defName="PowerSwitch") and not(defName="Ship_Beam") and not(defName="Ship_CryptosleepCasket") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="TableMachining") and not(defName="TubeTelevision") and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper") and not(defName="VitalsMonitor") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_CastIronIngot>50</ME_CastIronIngot></value>
+      </li>
+      <!-- ME_Tin: stat=Mass AND comp=CompProperties_Glower -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/Mass and comps/li[contains(@Class, "CompProperties_Glower")] and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_Tin) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="FloodLight") and not(defName="Gloomlight") and not(defName="Heater") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="VanometricPowerCell") and not(defName="WallLamp")]/costList</xpath>
+        <value><ME_Tin>3</ME_Tin></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/Mass and comps/li[contains(@Class, "CompProperties_Glower")] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_Tin) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="FloodLight") and not(defName="Gloomlight") and not(defName="Heater") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="VanometricPowerCell") and not(defName="WallLamp")]/costList</xpath>
+        <value><ME_Tin>5</ME_Tin></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/Mass and comps/li[contains(@Class, "CompProperties_Glower")] and costList/Steel > 100 and not(costList/ME_Tin) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="FloodLight") and not(defName="Gloomlight") and not(defName="Heater") and not(defName="StandingLamp") and not(defName="SunLamp") and not(defName="VanometricPowerCell") and not(defName="WallLamp")]/costList</xpath>
+        <value><ME_Tin>5</ME_Tin></value>
+      </li>
+      <!-- ME_Lead: designationCategory=Production AND cost=ComponentIndustrial -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and costList/ComponentIndustrial and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_Lead) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="DrugLab") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Lead>5</ME_Lead></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and costList/ComponentIndustrial and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_Lead) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="DrugLab") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Lead>5</ME_Lead></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and costList/ComponentIndustrial and costList/Steel > 100 and not(costList/ME_Lead) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="DrugLab") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Lead>10</ME_Lead></value>
+      </li>
+      <!-- ME_Nickel: designationCategory=Production AND comp=CompProperties_Flickable -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and comps/li[contains(@Class, "CompProperties_Flickable")] and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_Nickel) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Nickel>6</ME_Nickel></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and comps/li[contains(@Class, "CompProperties_Flickable")] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_Nickel) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Nickel>8</ME_Nickel></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[designationCategory[text()="Production"] and comps/li[contains(@Class, "CompProperties_Flickable")] and costList/Steel > 100 and not(costList/ME_Nickel) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="BiofuelRefinery") and not(defName="DeepDrill") and not(defName="ElectricCrematorium") and not(defName="ElectricSmelter") and not(defName="ElectricSmithy") and not(defName="ElectricStove") and not(defName="ElectricTailoringBench") and not(defName="FabricationBench") and not(defName="HiTechResearchBench") and not(defName="HydroponicsBasin") and not(defName="NutrientPasteDispenser") and not(defName="TableMachining")]/costList</xpath>
+        <value><ME_Nickel>20</ME_Nickel></value>
+      </li>
+      <!-- ME_Zinc: comp=CompProperties_Power AND thingClass=Building -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and thingClass[text()="Building"] and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_Zinc) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="ChemfuelPoweredGenerator") and not(defName="GeothermalGenerator") and not(defName="PowerConduit") and not(defName="Ship_Beam") and not(defName="Ship_Engine") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Zinc>2</ME_Zinc></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and thingClass[text()="Building"] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_Zinc) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="ChemfuelPoweredGenerator") and not(defName="GeothermalGenerator") and not(defName="PowerConduit") and not(defName="Ship_Beam") and not(defName="Ship_Engine") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Zinc>5</ME_Zinc></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[comps/li[contains(@Class, "CompProperties_Power")] and thingClass[text()="Building"] and costList/Steel > 100 and not(costList/ME_Zinc) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="ChemfuelPoweredGenerator") and not(defName="GeothermalGenerator") and not(defName="PowerConduit") and not(defName="Ship_Beam") and not(defName="Ship_Engine") and not(defName="Ship_SensorCluster") and not(defName="SolarGenerator") and not(defName="WatermillGenerator") and not(defName="WindTurbine") and not(defName="WoodFiredGenerator")]/costList</xpath>
+        <value><ME_Zinc>18</ME_Zinc></value>
+      </li>
+      <!-- ME_BrassIngot: stat=ShootingAccuracyTurret -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/ShootingAccuracyTurret and costList/Steel > 5 and not(costList/Steel > 30) and not(costList/ME_BrassIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper")]/costList</xpath>
+        <value><ME_BrassIngot>2</ME_BrassIngot></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/ShootingAccuracyTurret and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_BrassIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper")]/costList</xpath>
+        <value><ME_BrassIngot>5</ME_BrassIngot></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[statBases/ShootingAccuracyTurret and costList/Steel > 100 and not(costList/ME_BrassIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="Turret_Autocannon") and not(defName="Turret_FoamTurret") and not(defName="Turret_MiniTurret") and not(defName="Turret_RocketswarmLauncher") and not(defName="Turret_Sniper")]/costList</xpath>
+        <value><ME_BrassIngot>10</ME_BrassIngot></value>
+      </li>
+      <!-- ME_BronzeIngot: cost=ComponentSpacer AND designationCategory=Misc -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[costList/ComponentSpacer and designationCategory[text()="Misc"] and costList/Steel > 30 and not(costList/Steel > 100) and not(costList/ME_BronzeIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="CryptosleepCasket") and not(defName="GroundPenetratingScanner") and not(defName="LongRangeMineralScanner")]/costList</xpath>
+        <value><ME_BronzeIngot>10</ME_BronzeIngot></value>
+      </li>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[costList/ComponentSpacer and designationCategory[text()="Misc"] and costList/Steel > 100 and not(costList/ME_BronzeIngot) and not(costList/ME_ElectrumIngot) and not(costList/ME_Lithium) and not(costList/ME_WhiteGoldIngot) and not(defName="CryptosleepCasket") and not(defName="GroundPenetratingScanner") and not(defName="LongRangeMineralScanner")]/costList</xpath>
+        <value><ME_BronzeIngot>15</ME_BronzeIngot></value>
+      </li>
+      </operations>
+    </match>
+  </Operation>
+</Patch>
