@@ -41,8 +41,41 @@ LEVER_STATS = {"WorkToBuild", "WorkToMake", "MarketValue", "SellPriceFactor",
 SIZE_EXPONENT = 0.5   # measured: added amount tracks ~Steel^0.5, not Steel
 
 
+# Tokens that appear in almost every thingClass and carry no information.
+GENERIC_CLASS_TOKENS = {"Building", "Thing", "Def", "Comp"}
+
+
+def class_tokens(thing_class):
+    """Meaningful CamelCase tokens of a thingClass.
+
+    A code identifier, not a display label: Building_HeaterWithOffset and
+    Building_Heater share "Heater", while Building_WorkTable and
+    Building_NutrientPasteDispenser share nothing. This is the same technique
+    the emitted xpaths already use on comp classes, and it is what stops a
+    prosthetics bench being paired with a food dispenser once statBases is out
+    of the fingerprint.
+    """
+    import re
+    if not thing_class:
+        return set()
+    name = thing_class.split(".")[-1]
+    return {t for t in re.findall(r"[A-Z][a-z0-9]*", name)
+            if t not in GENERIC_CLASS_TOKENS}
+
+
 def fingerprint(node):
-    """Functional identity: stats minus levers, comp classes, category."""
+    """Functional identity, weighted the way RimWorld actually stores function.
+
+    Comp PROPERTY VALUES, not statBases, are where a building's function
+    lives. A cooler and a heater are distinguished by CompProperties_TempControl
+    energyPerSecond, +21 against -21, while their statBases differ only in
+    incidental durability numbers. Matching on statBases pairs a wall heater
+    with the cooler; matching on comp properties pairs it with the heater.
+
+    statBases is deliberately excluded: MaxHitPoints, Flammability, Mass and
+    Beauty describe what a thing is made of and how tough it is, not what it
+    does.
+    """
     stats = {}
     sb = node.find("statBases")
     if sb is not None:
@@ -53,27 +86,48 @@ def fingerprint(node):
                 stats[c.tag] = float((c.text or "").strip())
             except ValueError:
                 pass
-    comps = frozenset(
-        li.get("Class").split(".")[-1]
-        for li in (node.find("comps") or [])
-        if li.get("Class")
-    )
-    return stats, comps, (node.findtext("designationCategory") or "").strip()
+    comps = {}
+    for li in (node.find("comps") or []):
+        cls = li.get("Class")
+        if not cls:
+            continue
+        props = {}
+        for c in li:
+            if len(c):
+                continue
+            txt = (c.text or "").strip()
+            if txt:
+                props[c.tag] = txt
+        comps[cls.split(".")[-1]] = props
+    return (comps, (node.findtext("designationCategory") or "").strip(),
+            class_tokens(node.findtext("thingClass")), stats)
 
 
-# Hand-curated anchors that override the automatic matcher. The hand list is
-# the authority; automation fills gaps. Each entry needs a reason and a
-# condition under which it can be deleted.
-#
-# VTE_WallHeater -> Heater
-#   The matcher picks Cooler, and on the available evidence it is right to:
-#   VTE_WallHeater has Flammability 0.7 and no Mass, exactly like the vanilla
-#   Cooler, while the vanilla Heater has 0.5 and Mass 6. This is not a VTE
-#   defect -- 15 of their 18 temperature items omit Mass, and Mass is inert on
-#   a non-minifiable building, which this is. The only structural signal that
-#   says "heater" is the thingClass, Building_HeaterWithOffset.
-#   Remove when the matcher gains a thingClass-family tie-break.
-OVERRIDES = {"VTE_WallHeater": "Heater"}
+def comps_agree(anchor, target):
+    """Anchor's comp classes present in target, and shared properties equal.
+
+    Properties only one side declares are ignored: the vanilla heater sets
+    shortCircuitInRain and VTE's wall heater does not, which says nothing
+    about whether they are the same kind of device. Properties BOTH declare
+    must agree, which is what rejects the cooler at energyPerSecond.
+    """
+    if not set(anchor) <= set(target):
+        return False
+    discriminating = 0
+    for cls, aprops in anchor.items():
+        tprops = target[cls]
+        shared = set(aprops) & set(tprops)
+        if any(aprops[k] != tprops[k] for k in shared):
+            return False
+        discriminating += len(shared)
+    return discriminating >= 1
+
+
+# Hand-curated anchors overriding the automatic matcher, for cases structure
+# genuinely cannot separate. Empty: the comp-property fingerprint resolves
+# every case on this modlist. Any entry needs a reason and a deletion
+# condition, or it becomes a permanent substitute for fixing the matcher.
+OVERRIDES: dict[str, str] = {}
 
 
 def analogue_ops(nodes, before, added, core, modded):
@@ -89,8 +143,8 @@ def analogue_ops(nodes, before, added, core, modded):
     anchors = [d for d in added if d in core]
     out, covered = [], {}
     for m in modded:
-        ms, mc, mcat = fps[m]
-        if not ms or not mcat:
+        mc, mcat, mtok, ms = fps[m]
+        if not mc or not mcat:
             continue
         forced = OVERRIDES.get(m)
         if forced is not None:
@@ -98,10 +152,22 @@ def analogue_ops(nodes, before, added, core, modded):
                 continue          # anchor gained nothing; nothing to transfer
             hits = [forced]
         else:
-            hits = [
-                a for a in anchors
-                if fps[a][0] == ms and fps[a][1] <= mc and fps[a][2] == mcat
-            ]
+            def eligible(a):
+                if fps[a][1] != mcat:
+                    return False
+                # thingClass tokens veto, never require: plain "Building"
+                # yields no tokens and must not disqualify a good match.
+                if fps[a][2] and mtok and not (fps[a][2] & mtok):
+                    return False
+                return True
+
+            # Comp properties only. A statBases fallback was tried and
+            # reverted: it recovers VTE_ACUnit but pairs VTE_StandingCooler
+            # with the Heater, because their durability stats happen to match
+            # while their TempControl energyPerSecond is opposite in sign.
+            # Trading one wrong answer for another is not progress, and defs
+            # that find no anchor still get covered by the categorical rules.
+            hits = [a for a in anchors if eligible(a) and comps_agree(fps[a][0], mc)]
         if len(hits) != 1:
             continue
         a = hits[0]

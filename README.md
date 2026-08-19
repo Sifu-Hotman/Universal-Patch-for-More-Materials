@@ -5,7 +5,7 @@ metals to vanilla recipes — and to no modded ones. This adds them to everythin
 
 **221 buildings across 43 content mods**, plus any mod released in future, because the
 rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 654 material requirements added, and **no vanilla def
+replaying RimWorld's patch pipeline: 490 material requirements added, and **no vanilla def
 touched**.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
@@ -86,19 +86,23 @@ It also skips any def already carrying electrum, lithium or white gold — the t
 he used that this patch never emits, and therefore proof he handled that def himself. That is
 how the ship parts keep their electrum instead of gaining copper.
 
-**One hand-assigned anchor.** `VTE_WallHeater` is pinned to the vanilla `Heater`. The matcher
-picks `Cooler`, and on the available evidence it is right to: that def has `Flammability 0.7`
-and no `Mass`, exactly like the vanilla cooler, where the vanilla heater has `0.5` and
-`Mass 6`.
+**How twins are recognised.** Function lives in comp *property values*, not `statBases`. A
+heater and a cooler are separated by `CompProperties_TempControl`'s `energyPerSecond`, +21
+against −21, while their `statBases` differ only in incidental durability numbers. Matching on
+`statBases` pairs VTE's wall heater with the *cooler*; matching on comp properties pairs it
+with the heater. Properties only one side declares are ignored, since the vanilla heater sets
+`shortCircuitInRain` and VTE's does not, which says nothing about what either device is.
 
-This is not a VTE defect — 15 of their 18 temperature items omit `Mass`, and `Mass` is inert
-on a non-minifiable building, which this is. The vanilla heater carries it only because it
-*is* minifiable and therefore haulable. The one structural signal that says "heater" is the
-`thingClass`, `Building_HeaterWithOffset`.
+`thingClass` tokens act as a veto rather than a requirement — reject only when both sides
+carry meaningful tokens and share none, which is what stops a prosthetics bench pairing with a
+nutrient paste dispenser. It is a code identifier, not a display label, and the emitted xpaths
+already match comp classes the same way.
 
-The override lives in `tools/pareto.py` under `OVERRIDES`, with the condition for deleting it:
-teach the matcher a `thingClass`-family tie-break. The hand list is the authority; automation
-fills the gaps.
+**Coverage is deliberately left on the table.** A `statBases` fallback for defs the comps
+cannot place was tried and reverted: it recovers `VTE_ACUnit` but pairs `VTE_StandingCooler`
+with the *heater*, whose durability stats happen to match while its `energyPerSecond` is the
+opposite sign. Trading one wrong answer for another is not progress, and anything without an
+anchor is still covered by the categorical rules.
 
 ## Why only More Materials?
 
