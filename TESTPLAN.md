@@ -14,7 +14,7 @@ PatchOperation pipeline, so most claims are checkable without launching.
 
 With More Materials present:
 
-- [ ] ~221 defs change, ~495 material requirements added
+- [ ] ~221 defs change, ~650 material requirements added
 - [ ] **zero vanilla defs modified** — the regression that matters most
 - [ ] `VTE_WallMountedCooler` gains copper
 - [ ] `Cooler` unchanged by us (already carries the author's copper and lithium)
@@ -37,8 +37,13 @@ Idempotence:
 
 ## 4. Regression sensitivity
 
-Both of these have shipped broken and are cheap to re-check:
+All of these have shipped broken and are cheap to re-check:
 
 - [ ] the per-rule material guard is not a single `ME_` prefix guard — a prefix
-      guard is self-defeating and collapses ~495 assignments to ~225
+      guard is self-defeating and collapses ~650 assignments to ~225
 - [ ] the vanilla exclusion list is non-empty and current
+- [ ] the header comment appears once, not duplicated by an in-place edit
+- [ ] no `<!—` or `—>` in the body: the header's em-dash sanitiser must never
+      run over the generated operations
+- [ ] `VTE_WallHeater` takes the heater's metals, not the cooler's — the
+      comp-property fingerprint regressing to statBases shows up here first

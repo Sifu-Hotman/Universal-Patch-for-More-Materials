@@ -22,7 +22,7 @@ the game and Workshop folders directly; no game launch.
    inside an XML comment and a raw `<` inside an xpath have both shipped broken
    before.
 3. Replay verification, both branches:
-   - with More Materials: ~221 defs changed, ~495 assignments, **0 vanilla**
+   - with More Materials: ~221 defs changed, ~650 assignments, **0 vanilla**
    - without More Materials: **0 defs changed** (the FindMod guard)
 4. In-game: load the full modlist, confirm no red errors, and check one target
    in the architect menu — VTE's wall-mounted cooler should list copper.

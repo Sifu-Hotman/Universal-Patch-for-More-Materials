@@ -5,7 +5,7 @@ metals to vanilla recipes — and to no modded ones. This adds them to everythin
 
 **221 buildings across 43 content mods**, plus any mod released in future, because the
 rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 490 material requirements added, and **no vanilla def
+replaying RimWorld's patch pipeline: 650 material requirements added, and **no vanilla def
 touched**.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
@@ -37,10 +37,9 @@ touching this.
 Rules alone are not quite enough, though. They cannot express a material the author gave to
 one def and withheld from a near-identical one: the vanilla cooler got copper and lithium and
 no cast iron, while the rules by themselves handed its wall-mounted twin copper and cast iron
-and no lithium. So **seven defs that are exact functional twins of something he patched copy
+and no lithium. So **nine defs that are exact functional twins of something he patched copy
 his actual material set instead**, scaled by `(target steel / anchor steel) ^ 0.5`. Those run
-first and are excluded from the rules, so the two never overlap. One of the seven has a
-hand-assigned anchor; see below.
+first and are excluded from the rules, so the two never overlap.
 
 Amounts come in size bands — `≤5 steel → 2 copper`, `5–30 → 5`, `30–100 → 10`, `100+ → 15` —
 fitted from the author's own numbers, which recovers his menu of round values exactly.
