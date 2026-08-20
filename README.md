@@ -3,10 +3,14 @@
 A RimWorld 1.6 patch mod. [More Materials][mm] adds copper, tin, nickel and five other
 metals to vanilla recipes — and to no modded ones. This adds them to everything else.
 
-**221 buildings across 43 content mods**, plus any mod released in future, because the
-rules are categorical rather than a per-def compatibility list. Verified end to end by
-replaying RimWorld's patch pipeline: 651 material requirements added, and **no vanilla def
-touched**.
+**This is not a compatibility list.** It is a set of structural rules — *anything with a
+power comp and a steel cost needs copper* — so it covers mods it has never seen, including
+ones released after it was written. Nothing here enumerates a modlist.
+
+Run against a 305-mod list to check the rules fire broadly, it reached 221 buildings across
+43 content mods and added 651 material requirements, touching **no vanilla def**. Those are
+measurements, not a coverage list: your mods are covered because they have powered steel
+buildings, not because they appear in a file.
 
 [mm]: https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889
 
@@ -155,17 +159,35 @@ rather than hardcoding one.
 ## Repo layout
 
 ```
-About/      mod metadata
-Patches/    the shipped patch
-tools/      the generator that produced it (Python, offline)
-docs/       derivation.md — full history, rejected designs, measurement bugs
+About/                   mod metadata
+Patches/01_Rules.xml     64 operations, universal, no modlist named
+Patches/02_Analogues.xml  9 operations, names specific modded defs
+tools/                   the generator that produced them (Python, offline)
+docs/                    derivation.md — history, rejected designs, bugs
 ```
+
+The split is the honest one. **`01_Rules.xml` is universal** — every operation is a
+structural predicate, and the only defNames in it are vanilla ones deliberately left alone.
+**`02_Analogues.xml` is not** — its nine operations name specific modded defs, and if you
+don't run those mods they select nothing and do nothing.
+
+Nine defs need naming because rules cannot express a material the author gave to one def and
+withheld from a near-identical one: the vanilla cooler got copper and lithium and no cast
+iron, so rules alone hand its wall-mounted twin copper and cast iron and no lithium — wrong
+in both directions. Those nine take his exact material set instead.
+
+**You do not need to run the generator.** The rules already cover your mods. Regenerating
+against your own modlist would only produce analogue entries for *your* near-twins, replacing
+nine slightly-imprecise results with nine exact ones.
 
 ## Regenerating
 
+Needed when More Materials updates, or to point the tooling at a different materials mod. Not
+needed to "get coverage for your mods" — see the repo layout above.
+
 The generator is not specific to More Materials; it takes any mod's packageId, replays that
 mod's `PatchOperation`s against your installed modlist, derives per-material rules from what it
-changed, and emits XML. The *output* is specific — every operation here hardcodes an `ME_`
+changed, and emits both files. The *output* is specific — every operation hardcodes an `ME_`
 material name.
 
 ```bash

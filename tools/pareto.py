@@ -461,6 +461,7 @@ def main() -> None:
               + ", ".join(f"{lo}-{hi if hi<10000 else '+'}:{a}"
                           for (lo, hi), a in zip(BANDS, band_amounts)))
 
+    print("\n===RULES===")
     print("\n<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<Patch>")
     bodies = []
     for r in top:
@@ -475,7 +476,15 @@ def main() -> None:
         # Analogue-covered defs are handled exactly; keep the rules off them.
         core_hits = {d for d in core if set(r["combo"]) <= feats[d]} | set(ana_covered)
         bodies.append(emit_xml(r["mat"], r["combo"], band_amounts, exclusive, core_hits))
-    print(wrap_findmod(args.parent_name, "\n".join(ana_ops + bodies)))
+    # Two files, because they are two different kinds of claim. The rules are
+    # universal: they fire on any def with the right structure, from any mod,
+    # including mods that do not exist yet. The analogue transfers name
+    # specific defs from the modlist this was generated against.
+    print(wrap_findmod(args.parent_name, "\n".join(bodies)))
+    print("</Patch>")
+    print("\n===ANALOGUES===")
+    print("\n<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<Patch>")
+    print(wrap_findmod(args.parent_name, "\n".join(ana_ops)))
     print("</Patch>")
 
 

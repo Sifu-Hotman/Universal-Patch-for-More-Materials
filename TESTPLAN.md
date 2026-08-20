@@ -5,7 +5,7 @@ PatchOperation pipeline, so most claims are checkable without launching.
 
 ## 1. Artifact integrity
 
-- [ ] `Patches/MoreMaterials_Universal.xml` parses as XML
+- [ ] both `Patches/*.xml` files parse as XML
 - [ ] Every `<xpath>` compiles
 - [ ] No `--` anywhere inside the header comment
 - [ ] No raw `<` inside any xpath (upper bounds use `not(Steel > n)`)
