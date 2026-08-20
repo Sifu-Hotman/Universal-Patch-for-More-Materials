@@ -1,5 +1,7 @@
 # Universal Patch for More Materials
 
+![Universal Patch for More Materials](Media/Badge_UPMM.png)
+
 A RimWorld 1.6 patch mod. [More Materials][mm] adds copper, tin, nickel and five other
 metals to vanilla recipes — and to no modded ones. This adds them to everything else.
 
