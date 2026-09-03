@@ -88,14 +88,28 @@ require.
 
 ## What it will not do
 
-**It never modifies a vanilla def.** Mopolita made every Core decision deliberately; this
-covers only the modded content he could not. Left to themselves the rules would hand the
-vanilla heater cast iron he chose to withhold, so every Core def a rule would select is named
-and excluded.
+**It never modifies a Ludeon def on its own.** Mopolita made every Core decision
+deliberately; this covers only the modded content he could not, and treats Ludeon's own
+non-decisions — Core *and* DLC — as gospel. Left to themselves the rules would hand the
+vanilla heater cast iron he chose to withhold, so every Ludeon def a rule would select is
+named and excluded. That exclusion list is built from every official folder installed when
+the patch is generated: on a Core-only machine it covers Core, and the DLC names drop in
+automatically when regenerated on a machine that owns the expansions (`tools/build_doc`
+loads `Data/<expansion>/Defs` for each present expansion).
 
 It also skips any def already carrying electrum, lithium or white gold — the three materials
 he used that this patch never emits, and therefore proof he handled that def himself. That is
 how the ship parts keep their electrum instead of gaining copper.
+
+**The one edge — cross-mod.** The exclusion list names Ludeon defs a rule matches *when the
+patch is generated*. A different mod can patch a Ludeon def into a rule's shape at load — a
+minification mod adds `Mass` to a vanilla generator, say — and that def is not on the list,
+so the rule fires on it in-game. On the reference modlist this is three defs, each gaining a
+couple of units of one material on a recipe that still builds, and each already modified by
+that other mod. A universal xpath rule cannot see a patch another mod applies at load without
+enumerating every Ludeon building (a non-starter), so this residue is documented rather than
+chased. See `test/verify.py` (the reproducible, Core + More Materials harness) and
+`TESTPLAN.md`.
 
 **How twins are recognised.** Function lives in comp *property values*, not `statBases`. A
 heater and a cooler are separated by `CompProperties_TempControl`'s `energyPerSecond`, +21

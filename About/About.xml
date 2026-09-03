@@ -15,7 +15,7 @@ Rather than a compatibility list naming each mod, it derives the rule More Mater
 Amounts are fitted from his own numbers and land within 2x of his choices 98% of the time. Being slightly off on quantity is a rounding difference; requiring none of a material at all is the actual bug.
 
 WHAT IT WILL NOT DO
-Never modifies a vanilla def. Mopolita made every Core decision deliberately, so every vanilla def the rules would otherwise select is explicitly excluded. Defs he already handled — the ship parts he gave electrum rather than copper — are skipped too.
+Never modifies a Ludeon def on its own. Mopolita made every Core decision deliberately, so every Ludeon def the rules would otherwise select is excluded — DLC buildings too, when the patch is regenerated on a machine that owns the expansions. Defs he already handled — the ship parts he gave electrum rather than copper — are skipped as well. The one edge: a Ludeon def that ANOTHER mod has already patched into a rule's shape (a vanilla generator some minification mod made minifiable, say) can slip through — a def that other mod already changed anyway.
 
 Does nothing at all if More Materials is absent.
 

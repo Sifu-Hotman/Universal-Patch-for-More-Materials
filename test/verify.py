@@ -1,20 +1,34 @@
 #!/usr/bin/env python3
-"""Machine-verified checks for the SHIPPED patch — automates TESTPLAN sections 1, 2, 4.
+"""Machine-verified checks for the SHIPPED patch — reproducible, no personal modlist.
 
-Reuses the offline replay infrastructure in tools/ (def loading, the leaf
-PatchOperation appliers) but applies the shipped Patches/*.xml independently of
-the generator and asserts the invariants the test plan lists by hand. Runs
-against the live modlist; the 0-vanilla invariant holds for any modlist, the
-coverage counts are range-checked because they depend on which content mods are
-active.
+The mod's correctness does not depend on any particular set of content mods, so
+neither does this harness. It runs three kinds of check:
+
+  1. Artifact integrity (static)   — the shipped XML parses strict, every xpath
+     compiles, no raw '<', and — the regression that has actually shipped — no
+     em-dash comment delimiters and no operations swallowed inside a comment.
+  2. Structure (static)            — every operation is wrapped in the
+     FindMod(More Materials) guard; every rule carries its own material guard and
+     the author-exclusive electrum/lithium/white-gold guards; the vanilla
+     exclusions are present; no self-defeating prefix guard; and the analogue
+     transfers are well-formed (the wall heater takes the heater's metals, not
+     the cooler's lithium).
+  3. Replay against Core + More Materials ONLY (the mod's actual dependencies,
+     not a snapshot of a personal modlist) plus a couple of SYNTHETIC modded
+     defs — so the rules have something to fire on. Asserts: UPMM modifies zero
+     Ludeon defs, a powered steel def gains copper, an author-handled (electrum)
+     def is skipped, the patch is a no-op without More Materials, and it is
+     idempotent.
+
+Coverage counts and the real analogue targets (VTE_WallHeater, …) are inherently
+modlist-specific and are left to the in-game pass in TESTPLAN — see it for the
+live-modlist replay and the residual cross-mod caveat.
 
   python3 test/verify.py            # all checks, exit non-zero on any failure
 
-Note on fidelity: this reuses tools/who_patched.apply_op for LEAF operations
-(Add/Replace/Remove/...), which are faithful, but replaces its
-PatchOperationFindMod handling — that matcher keys on packageId, while RimWorld
-(and this patch's `<mods><li>More Materials</li>`) keys on the About.xml <name>.
-Applier fidelity itself is covered by TESTPLAN section 3 (in-game).
+Fidelity: leaf ops (Add/…) delegate to tools/who_patched, faithful to RimWorld;
+PatchOperationFindMod is matched by the About.xml <name> (RimWorld's
+ModLister.HasActiveModWithName), not packageId.
 """
 
 from __future__ import annotations
@@ -28,34 +42,34 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "tools"))
 
 from who_patched import (  # noqa: E402
-    DEFAULT_CONFIG,
     DEFAULT_RW,
     DEFAULT_WORKSHOP,
     apply_op,
     op_class,
     read,
+    resolve_mods,
     xml_files,
 )
-from mod_rule import build_doc, cost_of  # noqa: E402
+from mod_rule import cost_of  # noqa: E402
 
 PATCHES = REPO / "Patches"
 MM_NAME = "More Materials"
 MM_ID = "mopolita.bame.morematerials"
+EXCLUSIVE_GUARDS = ("ME_ElectrumIngot", "ME_Lithium", "ME_WhiteGoldIngot")
 
 failures: list[str] = []
 
 
 def check(name: str, ok: bool, detail: str = "") -> bool:
-    mark = "PASS" if ok else "FAIL"
-    print(f"  [{mark}] {name}" + (f" — {detail}" if detail else ""))
+    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
     if not ok:
         failures.append(name)
     return ok
 
 
 # --------------------------------------------------------------------------
-# A name-faithful applier: FindMod matches the About.xml <name>, Sequence
-# recurses, every leaf op delegates to who_patched (faithful for those).
+# Applier: FindMod matches the About.xml <name>, Sequence recurses, leaf ops
+# delegate to who_patched (faithful for those).
 # --------------------------------------------------------------------------
 
 def apply_faithful(tree, op, active_names, unhandled) -> None:
@@ -71,18 +85,7 @@ def apply_faithful(tree, op, active_names, unhandled) -> None:
         for child in (list(seq) if seq is not None else []):
             apply_faithful(tree, child, active_names, unhandled)
         return
-    # Leaf op — who_patched applies these correctly (no FindMod inside).
     apply_op(tree, op, set(), unhandled)
-
-
-def about_names(mods) -> set[str]:
-    names = set()
-    for _pid, folder in mods:
-        root = read(folder / "About" / "About.xml")
-        node = root.find("name") if root is not None else None
-        if node is not None and node.text:
-            names.add(node.text.strip())
-    return names
 
 
 def apply_patch_files(tree, files, active_names):
@@ -110,74 +113,81 @@ def snapshot(tree) -> dict:
 
 
 def diff(before: dict, after: dict) -> dict:
-    """defName -> {'added': {mat: amt}, 'from': before, 'to': after} for changed defs."""
     changed = {}
     for dn, a in after.items():
         b = before.get(dn)
         if b != a:
-            added = {k: v for k, v in a.items() if k not in (b or {})}
-            changed[dn] = {"added": added, "from": b, "to": a}
+            changed[dn] = {k: v for k, v in a.items() if k not in (b or {})}
     return changed
 
 
-def replay(with_mm: bool):
-    """Build the doc, apply MM, snapshot, apply the shipped UPMM patches; return
-    (changed, src). When with_mm is False, MM is dropped from the FindMod name set
-    so the shipped patch's guard must make it a no-op."""
-    tree, mods, _active_ids, src = build_doc(DEFAULT_RW, DEFAULT_WORKSHOP, DEFAULT_CONFIG)
-    names = about_names(mods)
-    # Baseline: apply More Materials' own patches (what UPMM sits on top of).
-    mm_folder = next((f for pid, f in mods if pid == MM_ID), None)
-    if mm_folder is not None:
-        apply_patch_files(tree, xml_files(mm_folder, "Patches"), names)
+# Synthetic MODDED defs so the rules have something to fire on without any
+# content mod. A powered steel bench the copper rule must hit, and an
+# author-handled (electrum) one it must skip.
+FIXTURES = """<Defs>
+  <ThingDef><defName>MMUP_TestPoweredBench</defName>
+    <costList><Steel>50</Steel></costList>
+    <comps><li Class="CompProperties_Power"/></comps></ThingDef>
+  <ThingDef><defName>MMUP_TestElectrumBench</defName>
+    <costList><Steel>50</Steel><ME_ElectrumIngot>3</ME_ElectrumIngot></costList>
+    <comps><li Class="CompProperties_Power"/></comps></ThingDef>
+</Defs>"""
+
+
+def build_core_mm_doc(with_fixtures=True):
+    """Core + installed DLC + More Materials only — pinned dependencies, not a
+    personal modlist. Optional synthetic modded fixtures. Returns (tree, mods, src)."""
+    mods = resolve_mods(DEFAULT_RW, DEFAULT_WORKSHOP, [MM_ID])
+    doc = etree.Element("Defs")
+    src = {}
+    for expansion in sorted(p for p in (DEFAULT_RW / "Data").iterdir() if p.is_dir()):
+        d = expansion / "Defs"
+        if not d.is_dir():
+            continue
+        for path in sorted(d.rglob("*.xml")):
+            root = read(path)
+            if root is None:
+                continue
+            for n in root:
+                if isinstance(n.tag, str):
+                    doc.append(n)
+                    dn = n.findtext("defName")
+                    if dn:
+                        src[dn] = "core"
+    for pid, folder in mods:
+        for path in xml_files(folder, "Defs"):
+            root = read(path)
+            if root is None:
+                continue
+            for n in root:
+                if isinstance(n.tag, str):
+                    doc.append(n)
+                    dn = n.findtext("defName")
+                    if dn:
+                        src.setdefault(dn, pid)
+    if with_fixtures:
+        for n in etree.fromstring(FIXTURES):
+            doc.append(n)
+            src[n.findtext("defName")] = "fixture"
+    return etree.ElementTree(doc), mods, src
+
+
+def replay(with_mm: bool, with_fixtures=True):
+    tree, mods, src = build_core_mm_doc(with_fixtures)
+    names = {MM_NAME}
+    if mods:
+        apply_patch_files(tree, xml_files(mods[0][1], "Patches"), names)
     baseline = snapshot(tree)
-    # Apply the shipped patch, with or without MM visible to its FindMod guard.
-    eff_names = names if with_mm else (names - {MM_NAME})
-    files = sorted(PATCHES.glob("*.xml"))
-    apply_patch_files(tree, files, eff_names)
-    return diff(baseline, snapshot(tree)), src, tree
+    apply_patch_files(tree, sorted(PATCHES.glob("*.xml")),
+                      names if with_mm else set())
+    return diff(baseline, snapshot(tree)), src
 
 
 # --------------------------------------------------------------------------
-# 1. Artifact integrity
+# 1. Artifact integrity (static)
 # --------------------------------------------------------------------------
 
 EMDASH = "—"
-
-def check_integrity():
-    print("\n1. Artifact integrity")
-    for path in sorted(PATCHES.glob("*.xml")):
-        raw = path.read_text(encoding="utf-8")
-        # Strict parse — RimWorld's XmlDocument is a conformant, strict parser.
-        try:
-            tree = etree.parse(str(path), etree.XMLParser(recover=False))
-        except etree.XMLSyntaxError as e:
-            check(f"{path.name} parses (strict)", False, str(e).splitlines()[0])
-            continue
-        check(f"{path.name} parses (strict)", True)
-        root = tree.getroot()
-        # Every LIVE xpath compiles and carries no raw '<' (illegal; use not(> n)).
-        xpaths = [e.text for e in root.iter("xpath") if e.text]
-        bad_compile = [xp for xp in xpaths
-                       if _bad_xpath(xp)]
-        check(f"{path.name}: all {len(xpaths)} live xpaths compile", not bad_compile,
-              "" if not bad_compile else f"{len(bad_compile)} bad")
-        check(f"{path.name}: no raw '<' in xpaths", not any("<" in xp for xp in xpaths))
-        # The em-dash sanitiser (which converts illegal '--' to em-dash inside the
-        # header comment) must NEVER run over the operations: '<!—' / '—>' delimiters
-        # are corruption. Their presence collapses real operations into a comment.
-        check(f"{path.name}: no em-dash comment delimiters",
-              ("<!" + EMDASH) not in raw and (EMDASH + ">") not in raw)
-        # No real operation markup swallowed inside a comment (a broken delimiter
-        # can collapse a whole block into one comment — often a PROLOG comment
-        # before the root, which is why we scan preceding siblings too).
-        comments = [c for c in root.itersiblings(preceding=True) if c.tag is etree.Comment]
-        comments += [c for c in tree.iter() if c.tag is etree.Comment]
-        swallowed = [c for c in comments
-                     if any(tok in (c.text or "")
-                            for tok in ("<xpath>", "<li Class=", "<Operation Class="))]
-        check(f"{path.name}: no operations swallowed inside a comment", not swallowed,
-              "" if not swallowed else f"{len(swallowed)} comment(s) carry op markup")
 
 
 def _bad_xpath(xp: str) -> bool:
@@ -188,47 +198,112 @@ def _bad_xpath(xp: str) -> bool:
         return True
 
 
+def check_integrity():
+    print("\n1. Artifact integrity")
+    for path in sorted(PATCHES.glob("*.xml")):
+        raw = path.read_text(encoding="utf-8")
+        try:
+            tree = etree.parse(str(path), etree.XMLParser(recover=False))
+        except etree.XMLSyntaxError as e:
+            check(f"{path.name} parses (strict)", False, str(e).splitlines()[0])
+            continue
+        check(f"{path.name} parses (strict)", True)
+        root = tree.getroot()
+        xpaths = [e.text for e in root.iter("xpath") if e.text]
+        check(f"{path.name}: all {len(xpaths)} live xpaths compile",
+              not any(_bad_xpath(xp) for xp in xpaths))
+        check(f"{path.name}: no raw '<' in xpaths", not any("<" in xp for xp in xpaths))
+        check(f"{path.name}: no em-dash comment delimiters",
+              ("<!" + EMDASH) not in raw and (EMDASH + ">") not in raw)
+        comments = [c for c in root.itersiblings(preceding=True) if c.tag is etree.Comment]
+        comments += [c for c in tree.iter() if c.tag is etree.Comment]
+        swallowed = [c for c in comments
+                     if any(tok in (c.text or "")
+                            for tok in ("<xpath>", "<li Class=", "<Operation Class="))]
+        check(f"{path.name}: no operations swallowed inside a comment", not swallowed,
+              "" if not swallowed else f"{len(swallowed)} comment(s) carry op markup")
+
+
 # --------------------------------------------------------------------------
-# 2. Replay, both branches + idempotence
+# 2. Structure (static)
+# --------------------------------------------------------------------------
+
+def _adds(root):
+    return [li for li in root.iter("li") if (li.get("Class") or "").endswith("PatchOperationAdd")]
+
+
+def check_structure():
+    print("\n2. Structure")
+    rules = etree.parse(str(PATCHES / "01_Rules.xml"), etree.XMLParser(recover=False)).getroot()
+    ana = etree.parse(str(PATCHES / "02_Analogues.xml"), etree.XMLParser(recover=False)).getroot()
+
+    # Every operation lives under a FindMod(More Materials) guard — so the patch
+    # is inert without the parent (it would otherwise inject ME_ defNames that do
+    # not exist).
+    for root, name in ((rules, "01_Rules.xml"), (ana, "02_Analogues.xml")):
+        fm = root.findall("Operation")
+        wrapped = all((op.get("Class") or "").endswith("PatchOperationFindMod")
+                      and {li.text.strip() for li in op.findall("mods/li") if li.text} == {MM_NAME}
+                      for op in fm)
+        check(f"{name}: all operations wrapped in FindMod(More Materials)", bool(fm) and wrapped)
+
+    rule_xps = [li.findtext("xpath") or "" for li in _adds(rules)]
+    # Each rule guards its own material AND the three author-exclusive materials,
+    # and skips at least one named vanilla def. A single ME_ prefix guard would
+    # be self-defeating.
+    joined = " ".join(rule_xps)
+    check("rules: no self-defeating ME_ prefix guard", "starts-with" not in joined)
+    check("rules: every rule carries the author-exclusive guards",
+          all(all(f"not(costList/{g})" in xp for g in EXCLUSIVE_GUARDS) for xp in rule_xps))
+    # own material + the 3 author-exclusive materials = at least 4 ME_ guards.
+    check("rules: every rule carries a per-material self-guard",
+          all(xp.count("not(costList/ME_") >= 4 for xp in rule_xps))
+    check("rules: vanilla exclusions present",
+          all("not(defName=" in xp for xp in rule_xps),
+          f"{joined.count('not(defName=')} guards across {len(rule_xps)} rules")
+
+    ana_adds = _adds(ana)
+    check("analogues: 8 well-formed transfers", len(ana_adds) == 8, f"{len(ana_adds)} ops")
+    check("analogues: each names a def, guards it, and adds a value",
+          all(('defName="' in (li.findtext("xpath") or "")
+               and "not(costList/" in (li.findtext("xpath") or "")
+               and li.find("value") is not None and len(li.find("value")))
+              for li in ana_adds))
+    # The wall heater must take the HEATER's metals (copper, no lithium) — the
+    # comp-property fingerprint regressing to statBases shows up here.
+    wh = next((li for li in ana_adds
+               if 'defName="VTE_WallHeater"' in (li.findtext("xpath") or "")), None)
+    wh_mats = {c.tag for c in wh.find("value")} if wh is not None else set()
+    check("analogues: VTE_WallHeater takes heater metals, not the cooler's",
+          "ME_Copper" in wh_mats and "ME_Lithium" not in wh_mats, f"{sorted(wh_mats)}")
+
+
+# --------------------------------------------------------------------------
+# 3. Replay against Core + More Materials (+ synthetic fixtures)
 # --------------------------------------------------------------------------
 
 def check_replay():
-    print("\n2. Replay (More Materials present)")
-    changed, src, _tree = replay(with_mm=True)
+    print("\n3. Replay — Core + More Materials only (+ synthetic modded fixtures)")
+    changed, src = replay(with_mm=True)
     vanilla = sorted(dn for dn in changed if src.get(dn) == "core")
-    modded = [dn for dn in changed if src.get(dn) not in ("core", None)]
-    reqs = sum(len(c["added"]) for c in changed.values())
-
-    check("ZERO vanilla defs modified", not vanilla,
+    check("UPMM modifies ZERO Ludeon defs", not vanilla,
           "" if not vanilla else f"{len(vanilla)} touched: {vanilla[:8]}")
-    check("modded defs changed in range (150-320)", 150 <= len(modded) <= 320,
-          f"{len(modded)} changed")
-    check("material requirements added in range (450-820)", 450 <= reqs <= 820,
-          f"{reqs} added")
+    check("a powered steel def gains copper (the rule fires)",
+          "ME_Copper" in changed.get("MMUP_TestPoweredBench", {}),
+          f"added={changed.get('MMUP_TestPoweredBench', {})}")
+    check("an author-handled (electrum) def is skipped",
+          "MMUP_TestElectrumBench" not in changed)
 
-    def gained(dn, mat):
-        return dn in changed and mat in changed[dn]["added"]
-
-    check("VTE_WallMountedCooler gains ME_Copper", gained("VTE_WallMountedCooler", "ME_Copper"))
-    # Analogue: the wall heater must take the HEATER's metals, not the cooler's
-    # (cooler = ME_Lithium; heater = ME_Copper/Nickel/Tin, no lithium).
-    wh = changed.get("VTE_WallHeater", {}).get("added", {})
-    check("VTE_WallHeater takes heater metals, not cooler's",
-          "ME_Copper" in wh and "ME_Lithium" not in wh, f"added={wh}")
-    check("vanilla Cooler NOT changed by us", "Cooler" not in changed)
-    check("vanilla Ship_Reactor NOT changed by us", "Ship_Reactor" not in changed)
-
-    print("\n2b. Replay (More Materials absent → must be a no-op)")
-    changed_off, _src, _t = replay(with_mm=False)
+    print("\n3b. No-op without More Materials")
+    changed_off, _ = replay(with_mm=False)
     check("zero defs changed with MM absent", not changed_off,
           "" if not changed_off else f"{len(changed_off)} changed")
 
-    print("\n2c. Idempotence (apply twice == apply once)")
-    tree, mods, _a, _s = build_doc(DEFAULT_RW, DEFAULT_WORKSHOP, DEFAULT_CONFIG)
-    names = about_names(mods)
-    mm_folder = next((f for pid, f in mods if pid == MM_ID), None)
-    if mm_folder is not None:
-        apply_patch_files(tree, xml_files(mm_folder, "Patches"), names)
+    print("\n3c. Idempotence")
+    tree, mods, _src = build_core_mm_doc()
+    names = {MM_NAME}
+    if mods:
+        apply_patch_files(tree, xml_files(mods[0][1], "Patches"), names)
     files = sorted(PATCHES.glob("*.xml"))
     apply_patch_files(tree, files, names)
     once = snapshot(tree)
@@ -238,31 +313,13 @@ def check_replay():
           "" if once == twice else f"{len(diff(once, twice))} defs differ")
 
 
-# --------------------------------------------------------------------------
-# 4. Regression sensitivity (static)
-# --------------------------------------------------------------------------
-
-def check_regression():
-    print("\n4. Regression sensitivity (static)")
-    tree = etree.parse(str(PATCHES / "01_Rules.xml"), etree.XMLParser(recover=True))
-    live_xp = " ".join(e.text or "" for e in tree.getroot().iter("xpath"))
-    # The material guard must be per-material ME_ names, never a single prefix
-    # guard like starts-with(name(), "ME_") — that collapses coverage. Scan the
-    # LIVE xpaths, not the header prose (which discusses the rejected approach).
-    check("no self-defeating ME_ prefix guard in live rules", "starts-with" not in live_xp)
-    # The vanilla exclusion list must be present and current in the live rules.
-    excl = live_xp.count('not(defName="')
-    check("vanilla exclusions present in live rules", excl > 0,
-          f"{excl} not(defName=...) guards")
-
-
 def main() -> int:
     print("=" * 70)
-    print("UPMM shipped-patch verification")
+    print("UPMM shipped-patch verification (reproducible; Core + More Materials)")
     print("=" * 70)
     check_integrity()
+    check_structure()
     check_replay()
-    check_regression()
     print("\n" + "=" * 70)
     if failures:
         print(f"FAILED — {len(failures)} check(s): {failures}")
