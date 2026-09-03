@@ -18,34 +18,27 @@ the game and Workshop folders directly; no game launch.
 
 1. Regenerate; confirm the rule table in the emitted header still matches the
    `pareto.py` output.
-2. Validate the XML and every xpath — see the verification snippet below. `--`
-   inside an XML comment and a raw `<` inside an xpath have both shipped broken
-   before.
-3. Replay verification, both branches:
-   - with More Materials: ~221 defs changed, ~650 assignments, **0 vanilla**
-   - without More Materials: **0 defs changed** (the FindMod guard)
-4. In-game: load the full modlist, confirm no red errors, and check one target
+2. **Run the machine-verified harness — it must print `ALL CHECKS PASSED`:**
+
+   ```bash
+   python3 test/verify.py
+   ```
+
+   It automates the offline test plan: both files strict-parse; every xpath
+   compiles; no raw `<`; **no em-dash comment delimiters and no operations
+   swallowed in a comment** (the header sanitiser running over the operations has
+   shipped broken before); replay with More Materials → ~221 defs, ~650
+   assignments, **0 vanilla**; replay without it → **0 defs**; idempotent. Do not
+   hand-assemble the header — a blanket `--`→em-dash pass corrupts the operation
+   delimiters; keep `--` out of the header prose and use proper `<!--`/`-->`.
+3. In-game: load the full modlist, confirm no red errors, and check one target
    in the architect menu — VTE's wall-mounted cooler should list copper.
-5. In-game with More Materials disabled: confirm a clean load.
-6. Record the More Materials version tested; tag `v1.0.0`.
-7. Upload via in-game Mods → Upload to Steam.
+4. In-game with More Materials disabled: confirm a clean load.
+5. Record the More Materials version tested; tag `v1.0.0`.
+6. Upload via in-game Mods → Upload to Steam.
 
-## Verification snippet
-
-```bash
-python3 - <<'PY'
-import sys; sys.path.insert(0, 'tools')
-from lxml import etree
-doc = etree.parse('Patches/MoreMaterials_Universal.xml')
-ops = doc.getroot().findall('.//li[@Class]')
-for o in ops:
-    etree.XPath(o.findtext('xpath').strip())
-print(f"{len(ops)} operations, all xpaths compile")
-PY
-```
-
-For the replay check see `docs/derivation.md`; `tools/who_patched.py` runs the
-same pipeline against arbitrary defNames.
+For attribution of any single def ("why does my cooler cost this?"),
+`tools/who_patched.py` runs the same replay against arbitrary defNames.
 
 ## Versioning
 
