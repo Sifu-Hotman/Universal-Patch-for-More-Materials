@@ -94,8 +94,8 @@ non-decisions — Core *and* DLC — as gospel. Left to themselves the rules wou
 vanilla heater cast iron he chose to withhold, so every Ludeon def a rule would select is
 named and excluded. That exclusion list is built from every official folder installed when
 the patch is generated: on a Core-only machine it covers Core, and the DLC names drop in
-automatically when regenerated on a machine that owns the expansions (`tools/build_doc`
-loads `Data/<expansion>/Defs` for each present expansion).
+automatically when regenerated on a machine that owns the expansions (`build_doc` in
+`tools/mod_rule.py` loads `Data/<expansion>/Defs` for each present expansion).
 
 It also skips any def already carrying electrum, lithium or white gold — the three materials
 he used that this patch never emits, and therefore proof he handled that def himself. That is

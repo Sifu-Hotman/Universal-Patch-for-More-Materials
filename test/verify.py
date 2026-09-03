@@ -121,6 +121,21 @@ def diff(before: dict, after: dict) -> dict:
     return changed
 
 
+def costlist_sig(tree) -> dict:
+    """defName -> serialized costList. Unlike cost_of/snapshot (a tag-keyed dict,
+    which collapses a duplicate <ME_Copper> node), this preserves node order and
+    duplicates, so a non-idempotent double-apply is actually visible."""
+    out = {}
+    for n in tree.getroot():
+        if not isinstance(n.tag, str):
+            continue
+        dn = n.findtext("defName")
+        cl = n.find("costList")
+        if dn and cl is not None:
+            out[dn] = etree.tostring(cl, encoding="unicode")
+    return out
+
+
 # Synthetic MODDED defs so the rules have something to fire on without any
 # content mod. A powered steel bench the copper rule must hit, and an
 # author-handled (electrum) one it must skip.
@@ -306,11 +321,12 @@ def check_replay():
         apply_patch_files(tree, xml_files(mods[0][1], "Patches"), names)
     files = sorted(PATCHES.glob("*.xml"))
     apply_patch_files(tree, files, names)
-    once = snapshot(tree)
+    once = costlist_sig(tree)  # serialized, so a duplicate-node re-add would show
     apply_patch_files(tree, files, names)
-    twice = snapshot(tree)
-    check("second application adds nothing", once == twice,
-          "" if once == twice else f"{len(diff(once, twice))} defs differ")
+    twice = costlist_sig(tree)
+    diffed = [dn for dn in twice if once.get(dn) != twice[dn]]
+    check("second application adds nothing", not diffed,
+          "" if not diffed else f"{len(diffed)} defs differ")
 
 
 def main() -> int:

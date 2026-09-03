@@ -142,9 +142,10 @@ OVERRIDES: dict[str, str] = {
     # help — this def reaches its stone recipes only through a modExtensions-nested
     # inheritRecipesFrom, while both benches also carry unrelated modded recipes
     # via recipeUsers (ammo, grenades). Excluded so it takes the categorical rules,
-    # which give a Production + ComponentIndustrial bench cast iron and lead, not
-    # the fabricator's brass. Delete if the matcher ever gains a reliable function
-    # signal, or if this def stops being a false twin.
+    # which give a powered Production + ComponentIndustrial bench the standard
+    # industrial set (copper, nickel, cast iron, lead) — not the fabricator's brass.
+    # Delete if the matcher ever gains a reliable function signal, or if this def
+    # stops being a false twin.
     "VFE_TableStonecutterElectric": "",
 }
 

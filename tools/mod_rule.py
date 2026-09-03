@@ -86,6 +86,10 @@ def build_doc(rw, workshop, config):
                     doc.append(n)
                     dn = n.findtext("defName")
                     if dn:
+                        # setdefault: a mod that REDEFINES a Ludeon defName keeps the
+                        # "core" tag, so it is treated as Ludeon and excluded from rule
+                        # generation. That is the safe direction — a missed rule, never
+                        # a wrong add — for a rare deliberate override.
                         src.setdefault(dn, pid)
     return etree.ElementTree(doc), mods, set(active), src
 
