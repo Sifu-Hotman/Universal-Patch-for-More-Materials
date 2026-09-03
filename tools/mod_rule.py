@@ -56,16 +56,26 @@ def build_doc(rw, workshop, config):
     mods = resolve_mods(rw, workshop, active)
     doc = etree.Element("Defs")
     src = {}
-    for path in sorted((rw / "Data" / "Core" / "Defs").rglob("*.xml")):
-        root = read(path)
-        if root is None:
+    # Every official Ludeon folder present (Core + whatever DLC is installed), all
+    # tagged "core". The mod's principle is that a Ludeon def More Materials did not
+    # patch was deliberately left alone and must be excluded — DLC included, since
+    # those are Ludeon's decisions too. DLC folders are simply absent on a Core-only
+    # install, so this is a no-op there and picks up the DLC exclusions automatically
+    # when the patch is regenerated on a machine that owns the expansions.
+    for expansion in sorted(p for p in (rw / "Data").iterdir() if p.is_dir()):
+        defs_dir = expansion / "Defs"
+        if not defs_dir.is_dir():
             continue
-        for n in root:
-            if isinstance(n.tag, str):
-                doc.append(n)
-                dn = n.findtext("defName")
-                if dn:
-                    src[dn] = "core"
+        for path in sorted(defs_dir.rglob("*.xml")):
+            root = read(path)
+            if root is None:
+                continue
+            for n in root:
+                if isinstance(n.tag, str):
+                    doc.append(n)
+                    dn = n.findtext("defName")
+                    if dn:
+                        src[dn] = "core"
     for pid, folder in mods:
         for path in xml_files(folder, "Defs"):
             root = read(path)

@@ -272,8 +272,12 @@ def main() -> None:
     # Combined Defs document -- this is what RimWorld patches against.
     doc = etree.Element("Defs")
     origin = {}
-    core_defs = args.rimworld / "Data" / "Core" / "Defs"
-    sources = [("ludeon.rimworld", sorted(core_defs.rglob("*.xml")))]
+    ludeon_files = []
+    for expansion in sorted(p for p in (args.rimworld / "Data").iterdir() if p.is_dir()):
+        d = expansion / "Defs"
+        if d.is_dir():
+            ludeon_files += sorted(d.rglob("*.xml"))
+    sources = [("ludeon.rimworld", ludeon_files)]
     sources += [(pid, xml_files(folder, "Defs")) for pid, folder in mods]
 
     for pid, files in sources:

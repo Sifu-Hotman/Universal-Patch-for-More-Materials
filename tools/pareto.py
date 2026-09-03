@@ -94,7 +94,7 @@ def fingerprint(node):
             except ValueError:
                 pass
     comps = {}
-    for li in (node.find("comps") or []):
+    for li in node.findall("comps/li"):
         cls = li.get("Class")
         if not cls:
             continue
@@ -130,11 +130,23 @@ def comps_agree(anchor, target):
     return discriminating >= 1
 
 
-# Hand-curated anchors overriding the automatic matcher, for cases structure
-# genuinely cannot separate. Empty: the comp-property fingerprint resolves
-# every case on this modlist. Any entry needs a reason and a deletion
-# condition, or it becomes a permanent substitute for fixing the matcher.
-OVERRIDES: dict[str, str] = {}
+# Hand-curated overrides for cases the automatic matcher cannot resolve. Map a
+# modded defName to an anchor to FORCE that pairing, or to "" to EXCLUDE it from
+# analogue matching (it then falls through to the categorical rules). Every entry
+# needs a reason and a deletion condition, or it becomes a permanent substitute
+# for fixing the matcher.
+OVERRIDES: dict[str, str] = {
+    # An electric stonecutter is not a component fabricator, but structure cannot
+    # tell them apart: both are Production worktables with a standard power comp,
+    # they share the generic {Work,Table} thingClass tokens, and recipes are no
+    # help — this def reaches its stone recipes only through a modExtensions-nested
+    # inheritRecipesFrom, while both benches also carry unrelated modded recipes
+    # via recipeUsers (ammo, grenades). Excluded so it takes the categorical rules,
+    # which give a Production + ComponentIndustrial bench cast iron and lead, not
+    # the fabricator's brass. Delete if the matcher ever gains a reliable function
+    # signal, or if this def stops being a false twin.
+    "VFE_TableStonecutterElectric": "",
+}
 
 
 def analogue_ops(nodes, before, added, core, modded):
@@ -155,6 +167,8 @@ def analogue_ops(nodes, before, added, core, modded):
             continue
         forced = OVERRIDES.get(m)
         if forced is not None:
+            if forced == "":
+                continue          # explicitly excluded — structure cannot place it
             if forced not in added:
                 continue          # anchor gained nothing; nothing to transfer
             hits = [forced]
