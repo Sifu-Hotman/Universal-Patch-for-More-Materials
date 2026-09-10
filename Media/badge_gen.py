@@ -88,16 +88,27 @@ def render_preview():
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=BLACK, outline=INGOT, width=8 * P)
     ingots(img, d, cx, cy, P * 2.8, INGOT)
 
-    f1 = ImageFont.truetype(FONT, 36 * P)
-    f2 = ImageFont.truetype(FONT, 30 * P)
-    f3 = ImageFont.truetype(FONT, 20 * P)
-    for text, font, y, color in [
-        ("UNIVERSAL PATCH", f1, 362 * P, WHITE),
-        ("for MORE MATERIALS", f2, 406 * P, WHITE),
-        ("MODDED BUILDINGS PAY THE SAME PRICE", f3, 456 * P, INGOT),
-    ]:
-        w = d.textlength(text, font=font)
-        d.text(((W - w) / 2, y), text, font=font, fill=color)
+    def fitp(texts, max_size, max_w):
+        s = int(max_size)
+        while s > 10 and max(d.textlength(t, font=ImageFont.truetype(FONT, s)) for t in texts) > max_w:
+            s -= 1
+        return ImageFont.truetype(FONT, s)
+
+    def draw_row(text, font, cx, y, target_w, fill):
+        natural = d.textlength(text, font=font)
+        gap = (target_w - natural) / (len(text) - 1) if len(text) > 1 else 0
+        x = cx - target_w / 2
+        for ch in text:
+            d.text((x, y), ch, font=font, fill=fill)
+            x += d.textlength(ch, font=font) + gap
+
+    line1, line2 = "UNIVERSAL PATCH", "FOR MORE MATERIALS"
+    ftitle = fitp([line1, line2], 42 * P, 470 * P)
+    plh = sum(ftitle.getmetrics())
+    ytop = 367 * P
+    ptarget = max(d.textlength(line1, font=ftitle), d.textlength(line2, font=ftitle))
+    draw_row(line1, ftitle, W / 2, ytop, ptarget, WHITE)
+    draw_row(line2, ftitle, W / 2, ytop + plh, ptarget, INGOT)
     img.resize((512, 512), Image.LANCZOS).save(os.path.join(HERE, "..", "About", "Preview.png"))
     print("wrote About/Preview.png")
 
