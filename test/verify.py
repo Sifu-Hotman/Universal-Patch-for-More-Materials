@@ -202,7 +202,10 @@ def replay(with_mm: bool, with_fixtures=True):
 # 1. Artifact integrity (static)
 # --------------------------------------------------------------------------
 
-EMDASH = "—"
+# Sentinel is the real em-dash (U+2014) - the thing this check detects. Written as
+# an escape, not the literal glyph, so an ASCII-dash sweep over the source cannot
+# silently turn it into "-" and make the guard match every "<!--"/"-->" (it did).
+EMDASH = "\u2014"
 
 
 def _bad_xpath(xp: str) -> bool:
