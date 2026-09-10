@@ -68,7 +68,7 @@ def render_badge():
     t1 = "UNIVERSAL PATCH"
     w1 = d.textlength(t1, font=f1)
     d.text((CX - w1 / 2, 32 * S), t1, font=f1, fill=WHITE)
-    t2 = "for MORE MATERIALS"
+    t2 = "FOR MORE MATERIALS"
     K = 1.6 * S
     w2 = sum(d.textlength(c, font=f2) + K for c in t2) - K
     x = CX - w2 / 2
