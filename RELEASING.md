@@ -35,7 +35,12 @@ the game and Workshop folders directly; no game launch.
    in the architect menu — VTE's wall-mounted cooler should list copper.
 4. In-game with More Materials disabled: confirm a clean load.
 5. Record the More Materials version tested; tag `v1.0.0`.
-6. Upload via in-game Mods → Upload to Steam.
+6. Stage a clean upload: `./publish.sh`. RimWorld's uploader ships the WHOLE mod
+   folder (no `.rwignore`; `SetItemContent` runs over the mod dir), so never upload the
+   repo - it carries `tools/`, `test/`, `docs/`, etc. `publish.sh` copies only the
+   RimWorld-loaded content (About, Patches) plus LICENSE into a sibling `.publish/`.
+   Point RimWorld's `Mods/` entry at that staged folder (or use SteamCMD) and upload.
+   After the first publish, copy the generated `About/PublishedFileId.txt` back to the repo.
 
 For attribution of any single def ("why does my cooler cost this?"),
 `tools/who_patched.py` runs the same replay against arbitrary defNames.
