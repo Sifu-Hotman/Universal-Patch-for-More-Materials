@@ -5,7 +5,7 @@ Same geometry system as the rest of my mods' badges (300x100 bar/circle/ring
 knockout; 512 preview) so they read as one set, with its own identity:
 
 - Accent INGOT BLUE. Copper would have been the thematic pick, but it sits ~9
-  degrees from the Loadouts amber and ~27 from the Tactics red — squeezed between
+  degrees from the Loadouts amber and ~27 from the Tactics red - squeezed between
   two hues already in use. Blue at ~220 is 44 clear of the Pawns Optimize Weapon Quality teal
   and 45 clear of the Better Attack Orders violet.
 - Emblem is a stack of three ingots, drawn here from scratch. Nothing in this

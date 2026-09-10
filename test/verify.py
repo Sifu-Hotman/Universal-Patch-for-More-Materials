@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Machine-verified checks for the SHIPPED patch — reproducible, no personal modlist.
+"""Machine-verified checks for the SHIPPED patch - reproducible, no personal modlist.
 
 The mod's correctness does not depend on any particular set of content mods, so
 neither does this harness. It runs three kinds of check:
 
-  1. Artifact integrity (static)   — the shipped XML parses strict, every xpath
-     compiles, no raw '<', and — the regression that has actually shipped — no
+  1. Artifact integrity (static)   - the shipped XML parses strict, every xpath
+     compiles, no raw '<', and - the regression that has actually shipped - no
      em-dash comment delimiters and no operations swallowed inside a comment.
-  2. Structure (static)            — every operation is wrapped in the
+  2. Structure (static)            - every operation is wrapped in the
      FindMod(More Materials) guard; every rule carries its own material guard and
      the author-exclusive electrum/lithium/white-gold guards; the vanilla
      exclusions are present; no self-defeating prefix guard; and the analogue
@@ -15,18 +15,18 @@ neither does this harness. It runs three kinds of check:
      the cooler's lithium).
   3. Replay against Core + More Materials ONLY (the mod's actual dependencies,
      not a snapshot of a personal modlist) plus a couple of SYNTHETIC modded
-     defs — so the rules have something to fire on. Asserts: UPMM modifies zero
+     defs - so the rules have something to fire on. Asserts: UPMM modifies zero
      Ludeon defs, a powered steel def gains copper, an author-handled (electrum)
      def is skipped, the patch is a no-op without More Materials, and it is
      idempotent.
 
-Coverage counts and the real analogue targets (VTE_WallHeater, …) are inherently
-modlist-specific and are left to the in-game pass in TESTPLAN — see it for the
+Coverage counts and the real analogue targets (VTE_WallHeater, ...) are inherently
+modlist-specific and are left to the in-game pass in TESTPLAN - see it for the
 live-modlist replay and the residual cross-mod caveat.
 
   python3 test/verify.py            # all checks, exit non-zero on any failure
 
-Fidelity: leaf ops (Add/…) delegate to tools/who_patched, faithful to RimWorld;
+Fidelity: leaf ops (Add/...) delegate to tools/who_patched, faithful to RimWorld;
 PatchOperationFindMod is matched by the About.xml <name> (RimWorld's
 ModLister.HasActiveModWithName), not packageId.
 """
@@ -61,7 +61,7 @@ failures: list[str] = []
 
 
 def check(name: str, ok: bool, detail: str = "") -> bool:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
+    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" - {detail}" if detail else ""))
     if not ok:
         failures.append(name)
     return ok
@@ -150,7 +150,7 @@ FIXTURES = """<Defs>
 
 
 def build_core_mm_doc(with_fixtures=True):
-    """Core + installed DLC + More Materials only — pinned dependencies, not a
+    """Core + installed DLC + More Materials only - pinned dependencies, not a
     personal modlist. Optional synthetic modded fixtures. Returns (tree, mods, src)."""
     mods = resolve_mods(DEFAULT_RW, DEFAULT_WORKSHOP, [MM_ID])
     doc = etree.Element("Defs")
@@ -252,7 +252,7 @@ def check_structure():
     rules = etree.parse(str(PATCHES / "01_Rules.xml"), etree.XMLParser(recover=False)).getroot()
     ana = etree.parse(str(PATCHES / "02_Analogues.xml"), etree.XMLParser(recover=False)).getroot()
 
-    # Every operation lives under a FindMod(More Materials) guard — so the patch
+    # Every operation lives under a FindMod(More Materials) guard - so the patch
     # is inert without the parent (it would otherwise inject ME_ defNames that do
     # not exist).
     for root, name in ((rules, "01_Rules.xml"), (ana, "02_Analogues.xml")):
@@ -284,7 +284,7 @@ def check_structure():
                and "not(costList/" in (li.findtext("xpath") or "")
                and li.find("value") is not None and len(li.find("value")))
               for li in ana_adds))
-    # The wall heater must take the HEATER's metals (copper, no lithium) — the
+    # The wall heater must take the HEATER's metals (copper, no lithium) - the
     # comp-property fingerprint regressing to statBases shows up here.
     wh = next((li for li in ana_adds
                if 'defName="VTE_WallHeater"' in (li.findtext("xpath") or "")), None)
@@ -298,7 +298,7 @@ def check_structure():
 # --------------------------------------------------------------------------
 
 def check_replay():
-    print("\n3. Replay — Core + More Materials only (+ synthetic modded fixtures)")
+    print("\n3. Replay - Core + More Materials only (+ synthetic modded fixtures)")
     changed, src = replay(with_mm=True)
     vanilla = sorted(dn for dn in changed if src.get(dn) == "core")
     check("UPMM modifies ZERO Ludeon defs", not vanilla,
@@ -338,7 +338,7 @@ def main() -> int:
     check_replay()
     print("\n" + "=" * 70)
     if failures:
-        print(f"FAILED — {len(failures)} check(s): {failures}")
+        print(f"FAILED - {len(failures)} check(s): {failures}")
         return 1
     print("ALL CHECKS PASSED")
     return 0

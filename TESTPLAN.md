@@ -4,7 +4,7 @@ Most of this is machine-verified and reproducible. `tools/` reimplements
 RimWorld's PatchOperation pipeline, so the offline checks need no game launch and
 no particular modlist.
 
-## 1. Automated harness — must print `ALL CHECKS PASSED`
+## 1. Automated harness - must print `ALL CHECKS PASSED`
 
 ```bash
 python3 test/verify.py
@@ -16,7 +16,7 @@ asserts:
 
 - **Integrity** (static): both files strict-parse; every xpath compiles; no raw
   `<`; **no em-dash comment delimiters and no operations swallowed inside a
-  comment** — the header sanitiser running over the operations has shipped broken
+  comment** - the header sanitiser running over the operations has shipped broken
   before.
 - **Structure** (static): every operation is wrapped in `FindMod(More Materials)`;
   every rule carries its own material guard plus the author-exclusive
@@ -27,7 +27,7 @@ asserts:
   a powered steel def gains copper (the rule fires); an electrum-carrying def is
   skipped; it is a **no-op without More Materials**; it is **idempotent**.
 
-Do not hand-assemble the header — a blanket `--`→em-dash pass corrupts the
+Do not hand-assemble the header - a blanket `--`→em-dash pass corrupts the
 operation delimiters; keep `--` out of the header prose and use proper
 `<!--`/`-->`. (`test/verify.py` fails loudly if it recurs.)
 
@@ -41,7 +41,7 @@ checks that need one, done by hand on your actual install:
   copper in its cost, and a build order for it completes with copper in stock.
 - With More Materials disabled: clean load, no missing-def errors.
 - Coverage sanity (optional): a full-modlist replay reproduces ~221 defs / ~650
-  assignments / **0 vanilla** — a measurement, not a gate; it moves with your mods.
+  assignments / **0 vanilla** - a measurement, not a gate; it moves with your mods.
 
 ## 3. Known limitations (documented, not chased)
 
@@ -58,6 +58,6 @@ checks that need one, done by hand on your actual install:
 
 ## Regenerating
 
-Never edit `Patches/*.xml` by hand — change `tools/pareto.py` and regenerate
+Never edit `Patches/*.xml` by hand - change `tools/pareto.py` and regenerate
 (`RELEASING.md`), or the next run reverts you. `who_patched.py` attributes any one
 def ("why does my cooler cost this?").

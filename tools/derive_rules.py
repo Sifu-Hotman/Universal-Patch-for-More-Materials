@@ -145,7 +145,7 @@ def main() -> None:
     modded = {dn for dn in nodes if src.get(dn) not in ("core", None)}
 
     print("=" * 78)
-    print(f"RULE DERIVATION — {args.packageId}")
+    print(f"RULE DERIVATION - {args.packageId}")
     print("=" * 78)
     print(f"\nuniverse: Core ThingDefs with a costList = {len(core)}")
     print(f"          modded ThingDefs with a costList = {len(modded)}")

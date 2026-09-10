@@ -139,11 +139,11 @@ OVERRIDES: dict[str, str] = {
     # An electric stonecutter is not a component fabricator, but structure cannot
     # tell them apart: both are Production worktables with a standard power comp,
     # they share the generic {Work,Table} thingClass tokens, and recipes are no
-    # help — this def reaches its stone recipes only through a modExtensions-nested
+    # help - this def reaches its stone recipes only through a modExtensions-nested
     # inheritRecipesFrom, while both benches also carry unrelated modded recipes
     # via recipeUsers (ammo, grenades). Excluded so it takes the categorical rules,
     # which give a powered Production + ComponentIndustrial bench the standard
-    # industrial set (copper, nickel, cast iron, lead) — not the fabricator's brass.
+    # industrial set (copper, nickel, cast iron, lead) - not the fabricator's brass.
     # Delete if the matcher ever gains a reliable function signal, or if this def
     # stops being a false twin.
     "VFE_TableStonecutterElectric": "",
@@ -169,7 +169,7 @@ def analogue_ops(nodes, before, added, core, modded):
         forced = OVERRIDES.get(m)
         if forced is not None:
             if forced == "":
-                continue          # explicitly excluded — structure cannot place it
+                continue          # explicitly excluded - structure cannot place it
             if forced not in added:
                 continue          # anchor gained nothing; nothing to transfer
             hits = [forced]
@@ -422,7 +422,7 @@ def main() -> None:
     rules.sort(key=lambda r: -len(r["mod"]))
 
     print("=" * 78)
-    print(f"PARETO BY ASSIGNMENT — {args.packageId}")
+    print(f"PARETO BY ASSIGNMENT - {args.packageId}")
     print("=" * 78)
     total_assign = sum(len(r["mod"]) for r in rules)
     covered = set().union(*[r["mod"] for r in rules]) if rules else set()
@@ -460,7 +460,7 @@ def main() -> None:
     exclusive = set(mats) - {r["mat"] for r in top}
     print(f"\nauthor-exclusive guard materials: {sorted(exclusive)}")
     print("\n" + "=" * 78)
-    print(f"SHIPPABLE XML — top {len(top)} rule(s)")
+    print(f"SHIPPABLE XML - top {len(top)} rule(s)")
     print("=" * 78)
 
     for r in top:

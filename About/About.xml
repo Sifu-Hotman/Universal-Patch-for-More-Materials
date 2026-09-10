@@ -6,16 +6,16 @@
     <supportedVersions>
         <li>1.6</li>
     </supportedVersions>
-    <description>More Materials adds copper, tin, nickel and five other metals to vanilla recipes. It does not touch modded ones — 55 patched defs, all of them vanilla. So your Vanilla Temperature Expanded wall cooler, functionally identical to the vanilla cooler, still costs plain steel and sidesteps the copper economy entirely.
+    <description>More Materials adds copper, tin, nickel and five other metals to vanilla recipes. It does not touch modded ones - 55 patched defs, all of them vanilla. So your Vanilla Temperature Expanded wall cooler, functionally identical to the vanilla cooler, still costs plain steel and sidesteps the copper economy entirely.
 
 This closes that gap for 221 buildings across 43 content mods, and for mods that do not exist yet.
 
-Rather than a compatibility list naming each mod, it derives the rule More Materials was following and applies it categorically. For copper that rule is simply: anything with a power comp needs copper, scaled to how much steel it uses — which matches Mopolita's own choices on 41 of his 48 copper recipes. Eight such rules, one file, no C#, no performance cost.
+Rather than a compatibility list naming each mod, it derives the rule More Materials was following and applies it categorically. For copper that rule is simply: anything with a power comp needs copper, scaled to how much steel it uses - which matches Mopolita's own choices on 41 of his 48 copper recipes. Eight such rules, one file, no C#, no performance cost.
 
 Amounts are fitted from his own numbers and land within 2x of his choices 98% of the time. Being slightly off on quantity is a rounding difference; requiring none of a material at all is the actual bug.
 
 WHAT IT WILL NOT DO
-Never modifies a Ludeon def on its own. Mopolita made every Core decision deliberately, so every Ludeon def the rules would otherwise select is excluded — DLC buildings too, when the patch is regenerated on a machine that owns the expansions. Defs he already handled — the ship parts he gave electrum rather than copper — are skipped as well. The one edge: a Ludeon def that ANOTHER mod has already patched into a rule's shape (a vanilla generator some minification mod made minifiable, say) can slip through — a def that other mod already changed anyway.
+Never modifies a Ludeon def on its own. Mopolita made every Core decision deliberately, so every Ludeon def the rules would otherwise select is excluded - DLC buildings too, when the patch is regenerated on a machine that owns the expansions. Defs he already handled - the ship parts he gave electrum rather than copper - are skipped as well. The one edge: a Ludeon def that ANOTHER mod has already patched into a rule's shape (a vanilla generator some minification mod made minifiable, say) can slip through - a def that other mod already changed anyway.
 
 Does nothing at all if More Materials is absent.
 
