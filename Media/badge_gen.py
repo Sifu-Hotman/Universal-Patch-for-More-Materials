@@ -94,21 +94,13 @@ def render_preview():
             s -= 1
         return ImageFont.truetype(FONT, s)
 
-    def draw_row(text, font, cx, y, target_w, fill):
-        natural = d.textlength(text, font=font)
-        gap = (target_w - natural) / (len(text) - 1) if len(text) > 1 else 0
-        x = cx - target_w / 2
-        for ch in text:
-            d.text((x, y), ch, font=font, fill=fill)
-            x += d.textlength(ch, font=font) + gap
-
     line1, line2 = "UNIVERSAL PATCH", "FOR MORE MATERIALS"
     ftitle = fitp([line1, line2], 42 * P, 470 * P)
     plh = sum(ftitle.getmetrics())
     ytop = 367 * P
-    ptarget = max(d.textlength(line1, font=ftitle), d.textlength(line2, font=ftitle))
-    draw_row(line1, ftitle, W / 2, ytop, ptarget, WHITE)
-    draw_row(line2, ftitle, W / 2, ytop + plh, ptarget, INGOT)
+    for text, y, color in [(line1, ytop, WHITE), (line2, ytop + plh, INGOT)]:
+        w = d.textlength(text, font=ftitle)
+        d.text(((W - w) / 2, y), text, font=ftitle, fill=color)
     img.resize((512, 512), Image.LANCZOS).save(os.path.join(HERE, "..", "About", "Preview.png"))
     print("wrote About/Preview.png")
 
