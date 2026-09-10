@@ -5,8 +5,8 @@
 
 ![Universal Patch for More Materials](Media/Badge_UPMM.png)
 
-A RimWorld 1.6 mod that dynamically extends [More Materials][mm] to cover modded recipes. Copper, tin, nickel and five
-other metals are dynamically added to non-vanilla recipes using \*math\*.
+A RimWorld mod that dynamically extends [More Materials][mm] to cover modded recipes. Copper, tin, nickel and five other
+metals are dynamically added to non-vanilla recipes using \*math\*.
 
 This is a set of rules that is applied based on item/furniture/building attributes and precedent set my the author of
 More Materials. This is not a static set of manual overrides with finite mod coverage (though there are some
@@ -17,7 +17,7 @@ mod-specific overrides. PRs welcome.).
 ## How it works
 
 Rather than a compatibility list naming each content mod, this derives the *rule* More Materials was following and
-applies it categorically. 
+applies it categorically.
 
 For example, for copper that rule is simply:
 
@@ -55,7 +55,7 @@ in these instead.
 
 **CE compatible?**
 
-Yes. 
+Yes.
 
 **Can I add or remove it mid-save?**
 
@@ -63,7 +63,7 @@ Yep.
 
 **Does it change balance?**
 
-Makes the game harder by making recipes more expensive. 
+Makes the game harder by making recipes more expensive.
 
 **AI?**
 
