@@ -10,11 +10,36 @@
 <Patch>
   <Operation Class="PatchOperationFindMod">
     <mods>
+      <li>Batteries Expanded</li>
+    </mods>
+    <match Class="PatchOperationSequence">
+      <success>Always</success>
+      <operations>
+      <!-- VFE_LargeBattery: hand-assigned anchor Battery -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName="VFE_LargeBattery" and not(costList/ME_Copper)]/costList</xpath>
+        <value><ME_Copper>14</ME_Copper></value>
+      </li>
+      </operations>
+    </match>
+  </Operation>
+  <Operation Class="PatchOperationFindMod">
+    <mods>
       <li>More Materials</li>
     </mods>
     <match Class="PatchOperationSequence">
       <success>Always</success>
       <operations>
+      <!-- Joy_Arcade: exact functional twin TubeTelevision -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName="Joy_Arcade" and not(costList/ME_Copper)]/costList</xpath>
+        <value><ME_Copper>8</ME_Copper></value>
+      </li>
+      <!-- RT_AssemblyBench: exact functional twin FabricationBench -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName="RT_AssemblyBench" and not(costList/ME_BrassIngot) and not(costList/ME_Copper) and not(costList/ME_Nickel)]/costList</xpath>
+        <value><ME_BrassIngot>10</ME_BrassIngot><ME_Copper>20</ME_Copper><ME_Nickel>15</ME_Nickel></value>
+      </li>
       <!-- TableBionics: exact functional twin FabricationBench -->
       <li Class="PatchOperationAdd">
         <xpath>/Defs/ThingDef[defName="TableBionics" and not(costList/ME_BrassIngot) and not(costList/ME_Copper) and not(costList/ME_Nickel)]/costList</xpath>
@@ -25,35 +50,30 @@
         <xpath>/Defs/ThingDef[defName="VFES_WallMountedTelevision" and not(costList/ME_Copper)]/costList</xpath>
         <value><ME_Copper>29</ME_Copper></value>
       </li>
-      <!-- VTE_WallMountedCooler: exact functional twin Cooler -->
-      <li Class="PatchOperationAdd">
-        <xpath>/Defs/ThingDef[defName="VTE_WallMountedCooler" and not(costList/ME_Copper) and not(costList/ME_Lithium)]/costList</xpath>
-        <value><ME_Copper>4</ME_Copper><ME_Lithium>2</ME_Lithium></value>
-      </li>
-      <!-- RT_AssemblyBench: exact functional twin FabricationBench -->
-      <li Class="PatchOperationAdd">
-        <xpath>/Defs/ThingDef[defName="RT_AssemblyBench" and not(costList/ME_BrassIngot) and not(costList/ME_Copper) and not(costList/ME_Nickel)]/costList</xpath>
-        <value><ME_BrassIngot>10</ME_BrassIngot><ME_Copper>20</ME_Copper><ME_Nickel>15</ME_Nickel></value>
-      </li>
       <!-- VFE_ComponentFabricationBench: exact functional twin FabricationBench -->
       <li Class="PatchOperationAdd">
         <xpath>/Defs/ThingDef[defName="VFE_ComponentFabricationBench" and not(costList/ME_BrassIngot) and not(costList/ME_Copper) and not(costList/ME_Nickel)]/costList</xpath>
         <value><ME_BrassIngot>7</ME_BrassIngot><ME_Copper>14</ME_Copper><ME_Nickel>11</ME_Nickel></value>
+      </li>
+      <!-- VFE_TidalGenerator: hand-assigned anchor GeothermalGenerator -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName="VFE_TidalGenerator" and not(costList/ME_CastIronIngot) and not(costList/ME_Copper) and not(costList/ME_Zinc)]/costList</xpath>
+        <value><ME_CastIronIngot>56</ME_CastIronIngot><ME_Copper>28</ME_Copper><ME_Zinc>9</ME_Zinc></value>
       </li>
       <!-- VTE_WallHeater: exact functional twin Heater -->
       <li Class="PatchOperationAdd">
         <xpath>/Defs/ThingDef[defName="VTE_WallHeater" and not(costList/ME_Copper) and not(costList/ME_Nickel) and not(costList/ME_Tin)]/costList</xpath>
         <value><ME_Copper>5</ME_Copper><ME_Nickel>2</ME_Nickel><ME_Tin>3</ME_Tin></value>
       </li>
+      <!-- VTE_WallMountedCooler: exact functional twin Cooler -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName="VTE_WallMountedCooler" and not(costList/ME_Copper) and not(costList/ME_Lithium)]/costList</xpath>
+        <value><ME_Copper>4</ME_Copper><ME_Lithium>2</ME_Lithium></value>
+      </li>
       <!-- VTE_WallMountedHeater: exact functional twin Heater -->
       <li Class="PatchOperationAdd">
         <xpath>/Defs/ThingDef[defName="VTE_WallMountedHeater" and not(costList/ME_Copper) and not(costList/ME_Nickel) and not(costList/ME_Tin)]/costList</xpath>
         <value><ME_Copper>4</ME_Copper><ME_Nickel>2</ME_Nickel><ME_Tin>3</ME_Tin></value>
-      </li>
-      <!-- Joy_Arcade: exact functional twin TubeTelevision -->
-      <li Class="PatchOperationAdd">
-        <xpath>/Defs/ThingDef[defName="Joy_Arcade" and not(costList/ME_Copper)]/costList</xpath>
-        <value><ME_Copper>8</ME_Copper></value>
       </li>
       </operations>
     </match>

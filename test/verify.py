@@ -258,12 +258,20 @@ def check_structure():
     # Every operation lives under a FindMod(More Materials) guard - so the patch
     # is inert without the parent (it would otherwise inject ME_ defNames that do
     # not exist).
-    for root, name in ((rules, "01_Rules.xml"), (ana, "02_Analogues.xml")):
+    # Rules gate on More Materials alone. Analogues may also carry a block gated on
+    # an extra parent that DEPENDS on More Materials (Batteries Expanded), naming it
+    # alone -- a FindMod <mods> list is OR, so AND is a single mod plus its
+    # dependency, not two <li>s. Every block is still a single-mod FindMod.
+    ANALOGUE_GATES = {MM_NAME, "Batteries Expanded"}
+    for root, name, allowed in ((rules, "01_Rules.xml", {MM_NAME}),
+                                (ana, "02_Analogues.xml", ANALOGUE_GATES)):
         fm = root.findall("Operation")
         wrapped = all((op.get("Class") or "").endswith("PatchOperationFindMod")
-                      and {li.text.strip() for li in op.findall("mods/li") if li.text} == {MM_NAME}
+                      and (m := {li.text.strip() for li in op.findall("mods/li") if li.text})
+                      and len(m) == 1 and m <= allowed
                       for op in fm)
-        check(f"{name}: all operations wrapped in FindMod(More Materials)", bool(fm) and wrapped)
+        check(f"{name}: all operations wrapped in FindMod({' / '.join(sorted(allowed))})",
+              bool(fm) and wrapped)
 
     rule_xps = [li.findtext("xpath") or "" for li in _adds(rules)]
     # Each rule guards its own material AND the three author-exclusive materials,
@@ -281,7 +289,7 @@ def check_structure():
           f"{joined.count('not(defName=')} guards across {len(rule_xps)} rules")
 
     ana_adds = _adds(ana)
-    check("analogues: 8 well-formed transfers", len(ana_adds) == 8, f"{len(ana_adds)} ops")
+    check("analogues: 10 well-formed transfers", len(ana_adds) == 10, f"{len(ana_adds)} ops")
     check("analogues: each names a def, guards it, and adds a value",
           all(('defName="' in (li.findtext("xpath") or "")
                and "not(costList/" in (li.findtext("xpath") or "")

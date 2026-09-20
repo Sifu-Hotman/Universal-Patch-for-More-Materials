@@ -18,7 +18,7 @@ import argparse
 import statistics
 import sys
 import math
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -147,10 +147,52 @@ OVERRIDES: dict[str, str] = {
     # Delete if the matcher ever gains a reliable function signal, or if this def
     # stops being a false twin.
     "VFE_TableStonecutterElectric": "",
+    # A terrain-locked, fuel-less power plant: the water twin of the Geothermal
+    # Generator (cast iron, zinc, copper). Structure cannot pair them on its own --
+    # the tidal generator carries a coastal-placement comp the geothermal lacks and
+    # is anchored to shoreline rather than a steam geyser, so their comp signatures
+    # diverge -- yet they are the same archetype, a large immovable generator that
+    # burns no fuel. Forced onto the geothermal so it inherits that exact metal set.
+    # Delete if the matcher ever gains a terrain/placement function signal.
+    "VFE_TidalGenerator": "GeothermalGenerator",
+    # A higher-capacity Building_Battery: the same CompProperties_Battery archetype
+    # as the vanilla Battery, which Batteries Expanded gives ME_Copper. The matcher
+    # rejects it because comps_agree wants EQUAL shared property values and this
+    # stores more at lower efficiency (storedEnergyMax 1400 vs 750, efficiency 0.5
+    # vs 0.7) -- a magnitude difference, not a function one. Forced onto the vanilla
+    # Battery so it inherits that copper, scaled by size. Gated on Batteries Expanded
+    # (the source of Battery's copper). Delete if the matcher ever tolerates
+    # magnitude-scaled comp properties, or if the Battery stops carrying copper.
+    "VFE_LargeBattery": "Battery",
 }
 
 
-def analogue_ops(nodes, before, added, core, modded):
+# Extra parent mods beyond the base (the packageId / --parent-name argument). Each
+# contributes ANALOGUE anchors only: a vanilla def it gives a material to becomes a
+# twin source, so the modded lookalike inherits that material (Batteries Expanded
+# gives vanilla Battery ME_Copper, so VFE_LargeBattery inherits copper). Analogues
+# drawn from an extra parent are gated on it as well as the base, since the twin is
+# only consistent when the parent that moved the vanilla def is installed. The
+# universal rules stay derived from the base parent alone.
+EXTRA_PARENTS: list[tuple[str, str]] = [
+    ("mopolita.bame.batteriesexpanded", "Batteries Expanded"),
+]
+
+
+def compute_added(nodes, before):
+    """Each def's materials that are new versus its pre-parent-patch costList."""
+    out = {}
+    for dn, node in nodes.items():
+        after = cost_of(node)
+        if after is None:
+            continue
+        new = {k: v for k, v in after.items() if k not in before[dn]}
+        if new:
+            out[dn] = new
+    return out
+
+
+def analogue_ops(nodes, before, added, core, modded, source):
     """Per-def operations copying a confident vanilla twin's exact signature.
 
     Categorical rules cannot express a material the author gave to one def and
@@ -158,11 +200,17 @@ def analogue_ops(nodes, before, added, core, modded):
     cast iron, while the rules give its modded twin cast iron and no lithium.
     Where a modded def matches an anchor exactly on function, copy the anchor's
     actual materials instead of guessing.
+
+    Each op carries a gate: the mods that sourced the anchor's copied materials.
+    The twin only reads right when the mod that moved the vanilla def is present.
+    A base-parent anchor gates on the base; an extra-parent anchor gates on that
+    extra parent alone (it depends on the base, so the base is implied). Returns
+    (gate_frozenset, op_xml) pairs.
     """
     fps = {d: fingerprint(n) for d, n in nodes.items()}
     anchors = [d for d in added if d in core]
     out, covered = [], {}
-    for m in modded:
+    for m in sorted(modded):
         mc, mcat, mtok, ms = fps[m]
         if not mc or not mcat:
             continue
@@ -200,13 +248,16 @@ def analogue_ops(nodes, before, added, core, modded):
         vals = {k: max(1, round(v * factor)) for k, v in added[a].items()}
         body = "".join(f"<{k}>{v}</{k}>" for k, v in sorted(vals.items()))
         guard = " and ".join(f"not(costList/{k})" for k in sorted(vals))
-        out.append(
+        gate = {source.get((a, k)) for k in added[a]}
+        gate.discard(None)
+        out.append((
+            frozenset(gate),
             f"  <!-- {m}: {'hand-assigned anchor' if m in OVERRIDES else 'exact functional twin'} {a} -->\n"
             '  <li Class="PatchOperationAdd">\n'
             f'    <xpath>/Defs/ThingDef[defName="{m}" and {guard}]/costList</xpath>\n'
             f"    <value>{body}</value>\n"
             "  </li>"
-        )
+        ))
         covered[m] = (a, vals)
     return out, covered
 
@@ -355,11 +406,13 @@ ANALOGUES_HEADER = """\
 
 
 def wrap_findmod(mod_name: str, body: str) -> str:
-    """Guard the whole patch behind the parent mod being present.
+    """Guard the whole patch behind one parent mod being present.
 
     Without this, installing the patch alone injects material defNames that
-    do not exist, producing broken recipes and load errors. <mods> matches
-    the parent's About.xml <name>, not its packageId.
+    do not exist, producing broken recipes and load errors. <mods> matches the
+    parent's About.xml <name>, not its packageId. A <mods> LIST is OR, not AND
+    (RimWorld's ModLister.AnyFromListActive), so AND across mods is expressed by
+    nesting, not by adding <li>s -- see wrap_gate.
     """
     indented = "\n".join(("    " + ln) if ln.strip() else ln for ln in body.split("\n"))
     return (
@@ -375,8 +428,21 @@ def wrap_findmod(mod_name: str, body: str) -> str:
     )
 
 
+def wrap_gate(mods, body: str) -> str:
+    """Guard body behind ALL of `mods` present -- AND via nested FindMods.
+
+    One mod is a plain wrap_findmod. Several nest outermost-to-innermost, since a
+    single FindMod's <mods> list is OR. In practice a gate is one mod: an extra
+    parent (e.g. Batteries Expanded) depends on the base (More Materials), so
+    naming the extra parent alone already implies the base is present.
+    """
+    for m in reversed(mods):
+        body = wrap_findmod(m, body)
+    return body
+
+
 def emit_xml(mat: str, combo, band_amounts, exclusive=(), exclude_defs=()) -> str:
-    pred = " and ".join(xpath_term(t) for t in combo)
+    pred = " and ".join(xpath_term(t) for t in sorted(combo))
     # Skip defs the author already handled. A prefix guard such as
     # not(costList/*[starts-with(name(), "ME_")]) looks right and is
     # self-defeating: the first rule adds a prefixed material, so every later
@@ -391,7 +457,7 @@ def emit_xml(mat: str, combo, band_amounts, exclusive=(), exclude_defs=()) -> st
     # not to give it, and rewrite the flatscreen television's cost outright.
     terms += [f'not(defName="{d}")' for d in sorted(exclude_defs)]
     guard = " and ".join(terms)
-    out = [f"  <!-- {mat}: {' AND '.join(combo)} -->"]
+    out = [f"  <!-- {mat}: {' AND '.join(sorted(combo))} -->"]
     for (lo, hi), amt in zip(BANDS, band_amounts):
         if amt is None:
             continue
@@ -422,34 +488,49 @@ def main() -> None:
     if folder is None:
         sys.exit(f"{args.packageId} not active")
 
+    # Base parent first, then any extra parents (their analogue anchors, gated on
+    # them). Base-first so a material's first appearance names its owning mod.
+    parents = [(args.parent_name, folder)]
+    for pid, name in EXTRA_PARENTS:
+        f = next((ff for p, ff in mods if p == pid), None)
+        if f is None:
+            print(f"note: extra parent {pid} not active; skipped", file=sys.stderr)
+            continue
+        parents.append((name, f))
+
     nodes, before, feats = {}, {}, {}
     for n in select(tree, "/Defs/ThingDef[defName]"):
         dn, c = n.findtext("defName"), cost_of(n)
         if dn and c:
             nodes[dn], before[dn], feats[dn] = n, c, features(n)
 
-    unhandled = []
-    for path in xml_files(folder, "Patches"):
-        root = read(path)
-        if root is None:
-            continue
-        for op in root:
-            if isinstance(op.tag, str):
-                apply_op(tree, op, active_ids, unhandled)
-
-    added = {}
-    for dn, node in nodes.items():
-        after = cost_of(node)
-        if after is None:
-            continue
-        new = {k: v for k, v in after.items() if k not in before[dn]}
-        if new:
-            added[dn] = new
+    # Replay each parent's Patches in turn onto the one tree, snapshotting after
+    # each. source[(def, material)] = the parent that first introduced it; added =
+    # the union (analogue anchors), added_base = the base parent alone (rules).
+    unhandled, source, prev = [], {}, {}
+    added_base = {}
+    for i, (name, pfolder) in enumerate(parents):
+        for path in xml_files(pfolder, "Patches"):
+            root = read(path)
+            if root is None:
+                continue
+            for op in root:
+                if isinstance(op.tag, str):
+                    apply_op(tree, op, active_ids, unhandled)
+        cum = compute_added(nodes, before)
+        for dn, mats in cum.items():
+            for k in mats:
+                if k not in prev.get(dn, {}):
+                    source[(dn, k)] = name
+        if i == 0:
+            added_base = cum
+        prev = cum
+    added = prev
 
     core = {dn for dn in nodes if src.get(dn) == "core"}
     modded = {dn for dn in nodes if src.get(dn) not in ("core", None)}
     mats = Counter()
-    for a in added.values():
+    for a in added_base.values():
         mats.update(a.keys())
 
     # The guard skips defs the author already touched with one of his
@@ -465,7 +546,7 @@ def main() -> None:
 
     rules = []
     for mat, _ in mats.most_common():
-        pos = {dn for dn, a in added.items() if mat in a} & core
+        pos = {dn for dn, a in added_base.items() if mat in a} & core
         if len(pos) < 2:
             continue
         score, combo, tp, fp, fn = search(pos, core, feats, 2)
@@ -480,7 +561,7 @@ def main() -> None:
     # Rank by ASSIGNMENTS, not by defs-touched-at-least-once. Ranking by defs
     # scored cast iron and nickel at "0 new" purely because copper had already
     # claimed the same defs, hiding the second and third most valuable rules.
-    rules.sort(key=lambda r: -len(r["mod"]))
+    rules.sort(key=lambda r: (-len(r["mod"]), r["mat"]))
 
     print("=" * 78)
     print(f"PARETO BY ASSIGNMENT - {args.packageId}")
@@ -504,15 +585,15 @@ def main() -> None:
     # Pooled exponent across every material, for the shrinkage above.
     _fits = []
     for _mat in mats:
-        _pairs = [(before[dn].get("Steel", 0), added[dn][_mat])
-                  for dn in added if _mat in added[dn] and dn in core]
+        _pairs = [(before[dn].get("Steel", 0), added_base[dn][_mat])
+                  for dn in added_base if _mat in added_base[dn] and dn in core]
         _f = fit_power(_pairs)
         if _f:
             _fits.append((_f[1], len([1 for st, a in _pairs if st > 0 and a > 0])))
     pooled_exp = (sum(pw * n for pw, n in _fits) / sum(n for _, n in _fits)) if _fits else None
     print(f"\npooled exponent across all materials: {pooled_exp:.3f}")
 
-    ana_ops, ana_covered = analogue_ops(nodes, before, added, core, modded)
+    ana_ops, ana_covered = analogue_ops(nodes, before, added, core, modded, source)
     print(f"\nanalogue transfers (exact functional twin): {len(ana_covered)}")
     for m, (a, v) in sorted(ana_covered.items()):
         print(f"   {m:<32} <- {a:<22} {v}")
@@ -526,7 +607,7 @@ def main() -> None:
 
     for r in top:
         pos = r["pos"]
-        pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
+        pairs = [(before[dn].get("Steel", 0), added_base[dn][r["mat"]]) for dn in pos]
         band_amounts = band_amounts_from_curve(pairs, pooled_exp)
         if band_amounts is None:
             band_amounts = []
@@ -544,7 +625,7 @@ def main() -> None:
     bodies = []
     for r in top:
         pos = r["pos"]
-        pairs = [(before[dn].get("Steel", 0), added[dn][r["mat"]]) for dn in pos]
+        pairs = [(before[dn].get("Steel", 0), added_base[dn][r["mat"]]) for dn in pos]
         band_amounts = band_amounts_from_curve(pairs, pooled_exp)
         if band_amounts is None:
             band_amounts = []
@@ -564,7 +645,13 @@ def main() -> None:
     print('\n<?xml version="1.0" encoding="utf-8" ?>')
     print(ANALOGUES_HEADER)
     print("<Patch>")
-    print(wrap_findmod(args.parent_name, "\n".join(ana_ops)))
+    # One FindMod block per gate: base-only analogues, then each extra parent's,
+    # so an extra parent's transfers fire only when that parent is present.
+    groups = defaultdict(list)
+    for gate, op in ana_ops:
+        groups[gate].append(op)
+    for gate in sorted(groups, key=lambda g: (len(g), sorted(g))):
+        print(wrap_gate(sorted(gate), "\n".join(groups[gate])))
     print("</Patch>")
 
 

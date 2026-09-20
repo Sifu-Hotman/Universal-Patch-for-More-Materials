@@ -83,7 +83,10 @@ def search(pos_ids, universe, feats, max_terms=2, min_support=2):
     counts = Counter()
     for i in pos_ids:
         counts.update(feats[i])
-    cands = [f for f, n in counts.items() if n >= min_support]
+    # Sorted so combinations() enumerates in a stable order: the strict-'>' below
+    # keeps the FIRST max-scoring combo, so an unsorted (hash-ordered) candidate
+    # list would pick a different equal-scoring predicate each run.
+    cands = sorted(f for f, n in counts.items() if n >= min_support)
 
     best = (0.0, None, 0, 0, 0)
     for k in range(1, max_terms + 1):
