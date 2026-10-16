@@ -417,7 +417,7 @@ version needs anyway.
 ## Technical notes
 
 - Plain RimWorld 1.6 mod. CE not required. Harmony likely not required.
-- packageId `eebette.UniversalRebalancer`, display name "Universal Rebalancer".
+- packageId `SifuHotman.UniversalRebalancer`, display name "Universal Rebalancer".
 - No ML, no clustering, no runtime inference of any kind.
 
 ## Open questions

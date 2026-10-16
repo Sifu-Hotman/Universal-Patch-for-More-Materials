@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
     <name>Universal Patch for More Materials</name>
-    <author>eebette</author>
-    <packageId>eebette.MoreMaterialsUniversalPatch</packageId>
+    <author>Sifu-Hotman</author>
+    <packageId>SifuHotman.MoreMaterialsUniversalPatch</packageId>
     <supportedVersions>
         <li>1.6</li>
     </supportedVersions>
@@ -26,7 +26,7 @@ Load after More Materials.
 
 All balance decisions here are Mopolita's, inferred from their patches and extended to content they could not have covered. Bugs in the extension are mine.
 
-Source and the generator that produced the patch: https://github.com/eebette/Universal-Patch-for-More-Materials</description>
+Source and the generator that produced the patch: https://github.com/Sifu-Hotman/Universal-Patch-for-More-Materials</description>
     <modDependencies>
         <li>
             <packageId>mopolita.bame.morematerials</packageId>
